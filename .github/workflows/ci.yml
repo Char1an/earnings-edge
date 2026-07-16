@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+jobs:
+  lint-and-import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend
+        working-directory: backend
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[dev]"
+
+      - name: Ruff
+        working-directory: backend
+        run: ruff check .
+
+      - name: Import check
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql+psycopg://x:x@localhost:5432/x"
+        run: |
+          python -c "from app.main import app; print('app import ok')"
+          python -c "from ingest import run_nightly; print('ingest import ok')"

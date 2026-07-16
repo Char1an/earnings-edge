@@ -1,4 +1,4 @@
-.PHONY: help db-up db-down db-logs install migrate universe backfill api
+.PHONY: help db-up db-down db-logs install migrate universe backfill nightly api
 
 help:
 	@echo "db-up       start Postgres via docker compose"
@@ -8,6 +8,7 @@ help:
 	@echo "migrate     run alembic migrations to head"
 	@echo "universe    load Nifty 500 constituents into stocks table"
 	@echo "backfill    backfill 10y OHLCV for Nifty 500"
+	@echo "nightly     run the full nightly ingest (prices/deals/fii-dii/delivery)"
 	@echo "api         run FastAPI dev server"
 
 db-up:
@@ -30,6 +31,9 @@ universe:
 
 backfill:
 	cd backend && . .venv/bin/activate && python -m ingest.sources.nse_prices --mode backfill --years 10
+
+nightly:
+	cd backend && . .venv/bin/activate && python -m ingest.run_nightly
 
 api:
 	cd backend && . .venv/bin/activate && uvicorn app.main:app --reload

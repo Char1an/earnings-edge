@@ -1,0 +1,50 @@
+name: nightly ingest
+
+on:
+  schedule:
+    # 15:30 UTC = 21:00 IST — after NSE end-of-day publish.
+    # NSE trades Mon-Fri; cron in UTC still runs Mon-Fri IST evenings.
+    - cron: "30 15 * * 1-5"
+  workflow_dispatch: {}
+
+concurrency:
+  group: nightly-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      INGEST_USER_AGENT: "Mozilla/5.0 (X11; Linux x86_64) earnings-edge/1.0"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Guard against missing DB secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not configured. Set it in repo Settings → Secrets."
+            exit 1
+          fi
+
+      - name: Install backend
+        working-directory: backend
+        run: |
+          python -m pip install -U pip
+          pip install -e .
+
+      - name: Alembic upgrade
+        working-directory: backend
+        run: alembic upgrade head
+
+      - name: Run nightly ingest
+        working-directory: backend
+        run: python -m ingest.run_nightly
