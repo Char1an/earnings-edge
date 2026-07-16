@@ -52,23 +52,42 @@ def load_universe() -> int:
         n500.columns = [c.strip() for c in n500.columns]
         n50.columns = [c.strip() for c in n50.columns]
 
-        nifty50_symbols = set(n50["Symbol"].astype(str).str.strip())
+        def col(df: pd.DataFrame, *candidates: str) -> str | None:
+            for c in candidates:
+                if c in df.columns:
+                    return c
+            return None
+
+        sym_col = col(n500, "Symbol", "SYMBOL")
+        isin_col = col(n500, "ISIN Code", "ISIN")
+        name_col = col(n500, "Company Name", "COMPANY NAME", "Name")
+        ind_col = col(n500, "Industry", "INDUSTRY")
+        if sym_col is None:
+            raise RuntimeError(f"Nifty 500 CSV missing Symbol column; got {list(n500.columns)}")
+
+        n50_sym_col = col(n50, "Symbol", "SYMBOL") or "Symbol"
+        nifty50_symbols = set(n50[n50_sym_col].astype(str).str.strip())
         fno_symbols = _fno_symbols()
 
         rows = []
         for _, r in n500.iterrows():
-            symbol = str(r["Symbol"]).strip()
+            symbol = str(r[sym_col]).strip()
+            if not symbol:
+                continue
             rows.append(
                 {
                     "symbol": symbol,
-                    "isin": str(r.get("ISIN Code", "")).strip() or None,
-                    "name": str(r.get("Company Name", "")).strip() or None,
-                    "industry": str(r.get("Industry", "")).strip() or None,
+                    "isin": (str(r[isin_col]).strip() or None) if isin_col else None,
+                    "name": (str(r[name_col]).strip() or None) if name_col else None,
+                    "industry": (str(r[ind_col]).strip() or None) if ind_col else None,
                     "in_nifty50": symbol in nifty50_symbols,
                     "in_nifty500": True,
                     "is_fno": symbol in fno_symbols,
                 }
             )
+
+        if not rows:
+            raise RuntimeError("Nifty 500 CSV parsed but yielded zero rows")
 
         session = SessionLocal()
         try:
