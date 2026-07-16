@@ -74,7 +74,15 @@ def _fetch_yfinance(symbol: str, start: date, end: date) -> pd.DataFrame | None:
         return None
 
 
-def _upsert_prices(stock_id: int, df: pd.DataFrame) -> int:
+def _fetch_with_fallback(symbol: str, start: date, end: date) -> pd.DataFrame | None:
+    """jugaad first, fall back to yfinance. Never raises."""
+    df = _fetch_jugaad(symbol, start, end)
+    if df is None or df.empty:
+        df = _fetch_yfinance(symbol, start, end)
+    return df
+
+
+def _upsert_prices(stock_id: int, df: pd.DataFrame | None) -> int:
     if df is None or df.empty:
         return 0
     df = df.dropna(subset=["trade_date", "open", "high", "low", "close"])
@@ -93,6 +101,8 @@ def _upsert_prices(stock_id: int, df: pd.DataFrame) -> int:
         }
         for r in df.itertuples(index=False)
     ]
+    if not rows:
+        return 0
 
     total = 0
     session = SessionLocal()
@@ -113,16 +123,19 @@ def _upsert_prices(stock_id: int, df: pd.DataFrame) -> int:
             session.execute(stmt)
             total += len(chunk)
         session.commit()
+    except Exception:
+        session.rollback()
+        raise
     finally:
         session.close()
     return total
 
 
-def backfill(years: int = 10, only_symbols: list[str] | None = None) -> int:
+def _run(job_name: str, years: int, only_symbols: list[str] | None) -> int:
     end = date.today()
-    start = end - timedelta(days=365 * years + 5)
+    start = end - timedelta(days=365 * years + 5) if years > 0 else end - timedelta(days=7)
 
-    with track_run("nse_prices_backfill") as run:
+    with track_run(job_name) as run:
         session = SessionLocal()
         try:
             q = select(Stock.id, Stock.symbol).where(Stock.in_nifty500.is_(True))
@@ -133,41 +146,29 @@ def backfill(years: int = 10, only_symbols: list[str] | None = None) -> int:
             session.close()
 
         total = 0
-        for stock_id, symbol in tqdm(stocks, desc="prices"):
-            df = _fetch_jugaad(symbol, start, end)
-            if df is None or df.empty:
-                df = _fetch_yfinance(symbol, start, end)
-            n = _upsert_prices(stock_id, df) if df is not None else 0
-            total += n
+        failed = 0
+        for stock_id, symbol in tqdm(stocks, desc=job_name):
+            try:
+                df = _fetch_with_fallback(symbol, start, end)
+                total += _upsert_prices(stock_id, df)
+            except Exception as e:
+                failed += 1
+                log.warning("upsert failed for %s: %s", symbol, e)
 
         run.rows_written = total
+        if failed:
+            run.status = "partial"
+            run.error = f"{failed} symbol(s) failed"
         return total
+
+
+def backfill(years: int = 10, only_symbols: list[str] | None = None) -> int:
+    return _run("nse_prices_backfill", years=years, only_symbols=only_symbols)
 
 
 def daily_update() -> int:
     """Small window update used by nightly cron. Fetches last 7 days."""
-    return backfill(years=0, only_symbols=None) if False else _daily_update_impl()
-
-
-def _daily_update_impl() -> int:
-    end = date.today()
-    start = end - timedelta(days=7)
-    with track_run("nse_prices_daily") as run:
-        session = SessionLocal()
-        try:
-            stocks = session.execute(
-                select(Stock.id, Stock.symbol).where(Stock.in_nifty500.is_(True))
-            ).all()
-        finally:
-            session.close()
-
-        total = 0
-        for stock_id, symbol in tqdm(stocks, desc="daily"):
-            df = _fetch_jugaad(symbol, start, end) or _fetch_yfinance(symbol, start, end)
-            total += _upsert_prices(stock_id, df) if df is not None else 0
-
-        run.rows_written = total
-        return total
+    return _run("nse_prices_daily", years=0, only_symbols=None)
 
 
 if __name__ == "__main__":
@@ -182,5 +183,5 @@ if __name__ == "__main__":
     if args.mode == "backfill":
         n = backfill(years=args.years, only_symbols=args.symbols)
     else:
-        n = _daily_update_impl()
+        n = daily_update()
     print(f"wrote {n} price rows")
