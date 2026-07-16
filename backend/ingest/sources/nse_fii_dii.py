@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -25,7 +25,7 @@ WARMUP = "https://www.nseindia.com/reports/fii-dii"
 API = "https://www.nseindia.com/api/fiidiiTradeReact"
 
 
-def _parse_date(s: str) -> datetime.date | None:
+def _parse_date(s: str) -> date | None:
     for fmt in ("%d-%b-%Y", "%d-%B-%Y", "%Y-%m-%d"):
         try:
             return datetime.strptime(s, fmt).date()

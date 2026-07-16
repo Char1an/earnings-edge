@@ -60,18 +60,25 @@ def _parse(csv_bytes: bytes, deal_type: str) -> pd.DataFrame:
             f"{deal_type} CSV missing expected columns; got {list(df.columns)}"
         )
 
+    # Preserve NaN → empty string sentinel so the unique constraint dedupes
+    # correctly (Postgres treats NULL as distinct in unique constraints).
+    client_series = (
+        df[client_col].where(df[client_col].notna(), "").astype(str).str.strip()
+        if client_col
+        else pd.Series([""] * len(df))
+    )
+
     out = pd.DataFrame(
         {
             "trade_date": pd.to_datetime(df[date_col], dayfirst=True, errors="coerce").dt.date,
             "symbol": df[sym_col].astype(str).str.strip(),
-            "client_name": df[client_col].astype(str).str.strip() if client_col else None,
+            "client_name": client_series,
             "buy_sell": df[side_col].astype(str).str.strip().str.upper().str[:4],
             "quantity": pd.to_numeric(df[qty_col].astype(str).str.replace(",", ""), errors="coerce"),
             "price": pd.to_numeric(df[price_col].astype(str).str.replace(",", ""), errors="coerce"),
         }
     ).dropna(subset=["trade_date", "symbol", "buy_sell", "quantity", "price"])
 
-    out["buy_sell"] = out["buy_sell"].str.replace("BUY", "BUY").str.replace("SELL", "SELL")
     out["value_cr"] = (out["quantity"] * out["price"]) / 1e7
     out["deal_type"] = deal_type
     out["exchange"] = "NSE"
