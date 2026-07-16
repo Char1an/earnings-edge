@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Data / caches
+backend/ingest/cache/
+data/
+*.parquet
+*.csv.gz
+
+# Postgres volume
+postgres_data/
+
+# Node / Next
+node_modules/
+.next/
+out/
+frontend/.env*
+!frontend/.env.example
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
