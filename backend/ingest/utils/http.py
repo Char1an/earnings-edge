@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -30,11 +30,18 @@ def _cache_path(url: str, subdir: str) -> Path:
     return out_dir / f"{key}.bin"
 
 
+def _retryable(exc: BaseException) -> bool:
+    # Network errors + 5xx retry; 4xx (missing files, bad params) do not.
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500
+    return isinstance(exc, httpx.HTTPError)
+
+
 @retry(
     reraise=True,
     stop=stop_after_attempt(4),
     wait=wait_exponential(multiplier=1, min=1, max=30),
-    retry=retry_if_exception_type((httpx.HTTPError,)),
+    retry=retry_if_exception(_retryable),
 )
 def fetch(
     url: str,
