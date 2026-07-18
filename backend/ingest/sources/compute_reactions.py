@@ -60,20 +60,24 @@ def _load_prices(session, stock_id: int, start: date, end: date) -> pd.DataFrame
     return df
 
 
-def _detect(df: pd.DataFrame, quarter_end: date) -> tuple[int, float] | None:
-    """Return (row_index_of_reaction_day, confidence) or None."""
-    win_lo = quarter_end + timedelta(days=WINDOW_START_DAYS)
-    win_hi = quarter_end + timedelta(days=WINDOW_END_DAYS)
-
-    df = df.reset_index(drop=True)
+def _enrich(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a reset copy of df with return + volume-baseline columns added."""
+    df = df.reset_index(drop=True).copy()
     df["prev_close"] = df["close"].shift(1)
     df["ret_abs"] = (df["close"] / df["prev_close"] - 1.0).abs()
     df["vol_avg20"] = df["volume"].rolling(VOL_LOOKBACK, min_periods=5).mean()
     df["vol_ratio"] = df["volume"] / df["vol_avg20"]
     df["score"] = df["ret_abs"] * df["vol_ratio"]
+    return df
 
-    mask = (df["trade_date"] >= win_lo) & (df["trade_date"] <= win_hi)
-    cand = df[mask & df["score"].notna()]
+
+def _detect(df_enriched: pd.DataFrame, quarter_end: date) -> tuple[int, float] | None:
+    """Return (row_index_of_reaction_day, confidence) or None. df must be enriched."""
+    win_lo = quarter_end + timedelta(days=WINDOW_START_DAYS)
+    win_hi = quarter_end + timedelta(days=WINDOW_END_DAYS)
+
+    mask = (df_enriched["trade_date"] >= win_lo) & (df_enriched["trade_date"] <= win_hi)
+    cand = df_enriched[mask & df_enriched["score"].notna()]
     if len(cand) < MIN_WINDOW_ROWS:
         return None
 
@@ -146,6 +150,9 @@ def compute_reactions(force: bool = False, only_stock_ids: list[int] | None = No
     """Compute (or recompute) reactions.
 
     force=False: only process events that don't yet have a reaction row.
+    Prices are loaded once per stock (full history) so per-event windows
+    are always covered. Commits are per-stock so a mid-run failure keeps
+    partial progress.
     """
     with track_run("compute_reactions") as run:
         session = SessionLocal()
@@ -154,69 +161,70 @@ def compute_reactions(force: bool = False, only_stock_ids: list[int] | None = No
                 EarningsEvent.id,
                 EarningsEvent.stock_id,
                 EarningsEvent.quarter_end,
-            )
+            ).order_by(EarningsEvent.stock_id.asc(), EarningsEvent.quarter_end.asc())
             if only_stock_ids:
                 q = q.where(EarningsEvent.stock_id.in_(only_stock_ids))
+            events = list(session.execute(q).all())
             if not force:
-                existing = session.execute(select(EarningsReaction.earnings_event_id)).all()
-                have = {r[0] for r in existing}
-                events = [e for e in session.execute(q).all() if e[0] not in have]
-            else:
-                events = list(session.execute(q).all())
+                existing = {
+                    r[0]
+                    for r in session.execute(select(EarningsReaction.earnings_event_id)).all()
+                }
+                events = [e for e in events if e[0] not in existing]
         finally:
             session.close()
+
+        # Group by stock so we load prices once per stock and commit per stock.
+        by_stock: dict[int, list[tuple[int, int, date]]] = {}
+        for e in events:
+            by_stock.setdefault(e[1], []).append(e)
 
         total = 0
         skipped = 0
-        session = SessionLocal()
-        try:
-            # Cache prices per stock across events (~40 events per stock in 10y).
-            by_stock: dict[int, pd.DataFrame] = {}
-            for event_id, stock_id, quarter_end in events:
-                if stock_id not in by_stock:
-                    by_stock[stock_id] = _load_prices(
-                        session,
-                        stock_id,
-                        start=quarter_end - timedelta(days=60),
-                        end=quarter_end + timedelta(days=WINDOW_END_DAYS + 15),
-                    )
-                df = by_stock[stock_id]
-                if df.empty or len(df) < MIN_WINDOW_ROWS + VOL_LOOKBACK:
-                    # try a wider load once
-                    df = _load_prices(
-                        session,
-                        stock_id,
-                        start=quarter_end - timedelta(days=180),
-                        end=quarter_end + timedelta(days=WINDOW_END_DAYS + 15),
-                    )
-                    by_stock[stock_id] = df
+        for stock_id, stock_events in by_stock.items():
+            session = SessionLocal()
+            try:
+                # Cover the full range this stock's events touch, with margins
+                # for the VOL_LOOKBACK baseline and post-event day5.
+                qmin = min(e[2] for e in stock_events)
+                qmax = max(e[2] for e in stock_events)
+                df = _load_prices(
+                    session,
+                    stock_id,
+                    start=qmin - timedelta(days=180),
+                    end=qmax + timedelta(days=WINDOW_END_DAYS + 15),
+                )
                 if df.empty:
-                    skipped += 1
+                    skipped += len(stock_events)
                     continue
 
-                detected = _detect(df, quarter_end)
-                if detected is None:
-                    skipped += 1
-                    continue
-                idx, confidence = detected
-                announcement_date = df.loc[idx, "trade_date"]
-                row = _reaction_row(df, idx, event_id)
-                if row is None:
-                    skipped += 1
-                    continue
-                _upsert_reaction(session, row, confidence, announcement_date, event_id)
-                total += 1
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+                # Enrich once per stock; index labels are stable across per-event lookups.
+                df_e = _enrich(df)
+                for event_id, _sid, quarter_end in stock_events:
+                    detected = _detect(df_e, quarter_end)
+                    if detected is None:
+                        skipped += 1
+                        continue
+                    idx, confidence = detected
+                    announcement_date = df_e.loc[idx, "trade_date"]
+                    row = _reaction_row(df_e, idx, event_id)
+                    if row is None:
+                        skipped += 1
+                        continue
+                    _upsert_reaction(session, row, confidence, announcement_date, event_id)
+                    total += 1
+                session.commit()
+            except Exception as e:
+                session.rollback()
+                log.warning("reactions for stock_id=%s failed: %s", stock_id, e)
+                skipped += len(stock_events)
+            finally:
+                session.close()
 
         run.rows_written = total
         if skipped:
             run.status = "partial" if total else "failed"
-            run.error = f"{skipped} event(s) skipped (insufficient data / weak signal)"
+            run.error = f"{skipped} event(s) skipped (insufficient data / weak signal / stock error)"
         return total
 
 

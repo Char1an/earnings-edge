@@ -30,13 +30,14 @@ BASE = "https://www.screener.in/company/{symbol}/{scope}/"
 MONTHS = {"Mar": 3, "Jun": 6, "Sep": 9, "Dec": 12}
 PER_STOCK_DELAY_S = 0.4  # be nice to Screener
 
-# Map of screener row label → key in our parsed record
+# Map of normalized screener row label → key in our record. Comparison is
+# done on `label.replace(" ", "")` so we tolerate "OPM %" vs "OPM%" etc.
 ROW_KEYS = {
     "sales": "revenue_cr",
     "revenue": "revenue_cr",
-    "net profit": "pat_cr",
-    "eps in rs": "eps",
-    "opm %": "opm_pct",
+    "netprofit": "pat_cr",
+    "epsinrs": "eps",
+    "opm": "opm_pct",
 }
 
 
@@ -44,7 +45,9 @@ def _fetch_html(symbol: str) -> str | None:
     for scope in ("consolidated", ""):
         url = BASE.format(symbol=symbol, scope=scope).rstrip("/") + "/"
         try:
-            return fetch(url, subdir=f"screener/{scope or 'standalone'}", use_cache=True).decode(
+            # use_cache=False: this scraper is called weekly and MUST see fresh
+            # HTML to pick up newly released quarters.
+            return fetch(url, subdir=f"screener/{scope or 'standalone'}", use_cache=False).decode(
                 "utf-8", errors="replace"
             )
         except Exception as e:
@@ -59,6 +62,9 @@ def _parse_num(text: str) -> float | None:
     s = s.replace("%", "").strip()
     if s in ("", "-"):
         return None
+    # Accounting negative: (123.45) → -123.45
+    if s.startswith("(") and s.endswith(")"):
+        s = "-" + s[1:-1].strip()
     m = re.match(r"^-?\d+(\.\d+)?$", s)
     if not m:
         return None
@@ -104,22 +110,25 @@ def _extract_quarters(html: str) -> list[dict]:
     if not isinstance(table, Tag):
         return []
 
-    header_cells = table.find("thead").find_all("th") if table.find("thead") else []
+    thead = table.find("thead")
+    header_cells = thead.find_all("th") if thead else []
     quarter_labels = [th.get_text(strip=True) for th in header_cells[1:]]  # first cell is blank
     if not quarter_labels:
         return []
 
+    # Some Screener tables omit an explicit <tbody>; fall back to direct <tr>.
+    body = table.find("tbody") or table
     per_row: dict[str, list[str]] = {}
-    for tr in table.find("tbody").find_all("tr"):
+    for tr in body.find_all("tr"):
         cells = tr.find_all("td")
         if not cells:
             continue
-        label = cells[0].get_text(" ", strip=True).lower().rstrip(":+")
-        # Normalize known variants
-        label = re.sub(r"\s+", " ", label).strip()
-        for row_key in ROW_KEYS:
-            if label.startswith(row_key):
-                per_row[ROW_KEYS[row_key]] = [c.get_text(strip=True) for c in cells[1:]]
+        raw_label = cells[0].get_text(" ", strip=True).lower().rstrip(":+")
+        raw_label = re.sub(r"\s+", " ", raw_label).strip()
+        norm = raw_label.replace(" ", "").rstrip("+:%")
+        for row_key, out_key in ROW_KEYS.items():
+            if norm.startswith(row_key):
+                per_row[out_key] = [c.get_text(strip=True) for c in cells[1:]]
                 break
 
     out: list[dict] = []
