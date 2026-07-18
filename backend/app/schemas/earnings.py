@@ -31,6 +31,7 @@ class EarningsReactionOut(BaseModel):
     day1_high_pct: float | None
     day1_low_pct: float | None
     volume_spike: float | None
+    detection_method: str | None
     detection_confidence: float | None
 
 
