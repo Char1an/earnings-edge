@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 BASE = "https://www.screener.in/company/{symbol}/{scope}/"
 MONTHS = {"Mar": 3, "Jun": 6, "Sep": 9, "Dec": 12}
-PER_STOCK_DELAY_S = 0.4  # be nice to Screener
+PER_STOCK_DELAY_S = 0.6  # be nice to Screener; 500 stocks ≈ 5 min
 
 # Map of normalized screener row label → key in our record. Comparison is
 # done on `label.replace(" ", "")` so we tolerate "OPM %" vs "OPM%" etc.
