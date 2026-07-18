@@ -7,6 +7,7 @@ from app.config import settings
 from app.db import Base
 from app.models import (  # noqa: F401  ensure models are imported for autogenerate
     deal,
+    earnings,
     flow,
     ingest_run,
     price,
