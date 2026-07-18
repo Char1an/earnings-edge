@@ -58,10 +58,10 @@ def base_rates(
     only_miss_yoy_pat: bool = False,
     session: Session = Depends(get_session),
 ) -> BaseRatesResponse:
-    stock = _resolve_stock(session, symbol)
-
     if only_beat_yoy_pat and only_miss_yoy_pat:
         raise HTTPException(400, "only_beat_yoy_pat and only_miss_yoy_pat are mutually exclusive")
+
+    stock = _resolve_stock(session, symbol)
 
     result = compute_base_rates(
         session,
