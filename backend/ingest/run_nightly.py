@@ -9,7 +9,7 @@ Daily order:
   6. compute_reactions inferred announcement date + reaction metrics for any
                        earnings_event still missing a reaction row
 
-Weekly (Sundays, UTC):
+Weekly (Fridays, UTC — same run as the last weekday cron):
   7. screener_earnings scrape quarterly financials for Nifty 500
 
 Each job wraps its own IngestRun. This wrapper only sequences them and
@@ -40,7 +40,9 @@ def _run(name: str, fn: Callable[[], int]) -> tuple[str, str, int | str]:
 def _should_run_weekly() -> bool:
     if os.environ.get("FORCE_WEEKLY") == "1":
         return True
-    return datetime.now(timezone.utc).weekday() == 6  # Sunday
+    # Friday. The nightly cron runs Mon-Fri; Screener is scraped once per week
+    # on Friday's run, catching every earnings announcement from the trading week.
+    return datetime.now(timezone.utc).weekday() == 4
 
 
 def main() -> int:

@@ -70,6 +70,15 @@ No ML for v1. Cosine similarity + windowed stats only.
 - Disclaimer visible on every UI page
 - Respect NSE rate limits: cache aggressively, backoff on 401/403
 
+## Known caveats (deferred, not bugs)
+
+- **Prices are NOT adjusted for splits / bonuses.** jugaad-data and yfinance
+  (with `auto_adjust=False`) both return raw NSE prices. Any earnings event
+  whose window straddles a split shows a false ±50%/±90% "reaction".
+  Owed: `corporate_actions` table + adjustment pass over `prices` (planned
+  post-week-8). Until then, treat reactions for stocks with recent splits
+  (INFY, RELIANCE, WIPRO, TITAN, etc.) with skepticism.
+
 ## Build order
 
 Week 1: repo + Docker + `stocks`/`prices` + 10y OHLCV backfill for Nifty 500.
