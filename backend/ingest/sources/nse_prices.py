@@ -86,6 +86,9 @@ def _upsert_prices(stock_id: int, df: pd.DataFrame | None) -> int:
     if df is None or df.empty:
         return 0
     df = df.dropna(subset=["trade_date", "open", "high", "low", "close"])
+    # jugaad-data occasionally returns overlapping chunks across long windows;
+    # collapse any duplicate trade_dates so the ON CONFLICT UPSERT stays legal.
+    df = df.drop_duplicates(subset=["trade_date"], keep="last")
     if df.empty:
         return 0
 
@@ -173,6 +176,8 @@ def daily_update() -> int:
 
 if __name__ == "__main__":
     import argparse
+
+    logging.basicConfig(level=logging.WARNING, format="%(name)s: %(levelname)s: %(message)s")
 
     p = argparse.ArgumentParser()
     p.add_argument("--mode", choices=["backfill", "daily"], default="backfill")
