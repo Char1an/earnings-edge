@@ -20,8 +20,10 @@ db-down:
 db-logs:
 	docker compose logs -f postgres
 
+PYTHON ?= python3
+
 install:
-	cd backend && python3.11 -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]"
+	cd backend && $(PYTHON) -m venv .venv && . .venv/bin/activate && pip install -U pip && pip install -e ".[dev]"
 
 migrate:
 	cd backend && . .venv/bin/activate && alembic upgrade head
