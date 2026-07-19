@@ -1,4 +1,4 @@
-.PHONY: help db-up db-down db-logs install migrate universe backfill nightly api
+.PHONY: help db-up db-down db-logs install migrate universe backfill nightly api frontend-install frontend
 
 help:
 	@echo "db-up       start Postgres via docker compose"
