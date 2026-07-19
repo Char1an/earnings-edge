@@ -37,3 +37,9 @@ nightly:
 
 api:
 	cd backend && . .venv/bin/activate && uvicorn app.main:app --reload
+
+frontend-install:
+	cd frontend && npm install
+
+frontend:
+	cd frontend && npm run dev
