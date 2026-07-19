@@ -79,9 +79,20 @@ export function BaseRates({ data }: { data: BaseRatesResponse }) {
   const metrics = ["gap_open_pct", "day1_close_pct", "day3_close_pct", "day5_close_pct"];
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {metrics.map((m) => (
-        <StatRow key={m} d={data.distributions[m]} />
-      ))}
+      {metrics.map((m) => {
+        const d = data.distributions[m];
+        if (!d) {
+          return (
+            <div
+              key={m}
+              className="border border-border rounded-md bg-panel p-3 text-xs text-muted"
+            >
+              {METRIC_LABELS[m] ?? m}: no distribution returned
+            </div>
+          );
+        }
+        return <StatRow key={m} d={d} />;
+      })}
     </div>
   );
 }
