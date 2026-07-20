@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { BaseRates } from "@/components/panels/BaseRates";
 import { HistoricalEarnings } from "@/components/panels/HistoricalEarnings";
+import { Positioning } from "@/components/panels/Positioning";
 import { api } from "@/lib/api";
 
 type Props = { params: { symbol: string } };
@@ -19,9 +20,10 @@ export default async function StockPage({ params }: Props) {
     notFound();
   }
 
-  const [history, rates] = await Promise.all([
+  const [history, rates, positioning] = await Promise.all([
     api.earningsHistory(symbol, 20).catch(() => []),
     api.baseRates(symbol).catch(() => null),
+    api.positioning(symbol, 30).catch(() => null),
   ]);
 
   return (
@@ -44,6 +46,22 @@ export default async function StockPage({ params }: Props) {
           </div>
         </div>
       </div>
+
+      <section>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-lg font-medium">Positioning (30d)</h2>
+          <div className="text-xs text-muted">
+            FII/DII shown are market-wide, not stock-specific
+          </div>
+        </div>
+        {positioning ? (
+          <Positioning data={positioning} />
+        ) : (
+          <div className="text-sm text-muted p-4 border border-border rounded-md bg-panel">
+            positioning unavailable — deals / FII-DII / delivery ingests haven't run yet
+          </div>
+        )}
+      </section>
 
       <section>
         <div className="flex items-baseline justify-between mb-3">

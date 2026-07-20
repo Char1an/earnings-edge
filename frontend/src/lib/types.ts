@@ -70,6 +70,31 @@ export type BaseRatesResponse = {
   distributions: Record<string, Distribution>;
 };
 
+export type Deal = {
+  trade_date: string;
+  deal_type: string;
+  exchange: string;
+  client_name: string | null;
+  buy_sell: string;
+  quantity: number;
+  price: number;
+  value_cr: number | null;
+};
+
+export type Positioning = {
+  stock_id: number;
+  window_days: number;
+  recent_deals: Deal[];
+  deals_buy_count: number;
+  deals_sell_count: number;
+  deals_net_value_cr: number;
+  fii_net_window_cr: number | null;
+  dii_net_window_cr: number | null;
+  delivery_pct_recent: number | null;
+  delivery_pct_baseline: number | null;
+  delivery_pct_delta: number | null;
+};
+
 export type FiiDiiPoint = {
   trade_date: string;
   fii_cash_net_cr: number | null;
