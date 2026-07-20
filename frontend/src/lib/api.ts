@@ -2,6 +2,7 @@ import type {
   BaseRatesResponse,
   EarningsHistoryItem,
   FiiDiiPoint,
+  Positioning,
   StockDetail,
   StockSummary,
 } from "./types";
@@ -48,5 +49,9 @@ export const api = {
       `/stocks/${encodeURIComponent(symbol)}/base-rates${q ? `?${q}` : ""}`,
     );
   },
+  positioning: (symbol: string, window_days = 30) =>
+    get<Positioning>(
+      `/stocks/${encodeURIComponent(symbol)}/positioning?window_days=${window_days}`,
+    ),
   marketFlows: (days = 90) => get<FiiDiiPoint[]>(`/market/flows?days=${days}`),
 };
