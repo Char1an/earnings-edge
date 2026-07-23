@@ -100,3 +100,21 @@ export type FiiDiiPoint = {
   fii_cash_net_cr: number | null;
   dii_cash_net_cr: number | null;
 };
+
+export type MatchedEvent = {
+  event_id: number;
+  fiscal_period: string;
+  announcement_date: string | null;
+  similarity: number;
+  features: Record<string, number | null>;
+  reaction: Record<string, number | null> | null;
+};
+
+export type PatternsResponse = {
+  stock_id: number;
+  anchor_event_id: number | null;
+  anchor_features: Record<string, number | null>;
+  feature_means: Record<string, number>;
+  feature_stds: Record<string, number>;
+  matches: MatchedEvent[];
+};

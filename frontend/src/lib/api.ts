@@ -2,6 +2,7 @@ import type {
   BaseRatesResponse,
   EarningsHistoryItem,
   FiiDiiPoint,
+  PatternsResponse,
   Positioning,
   StockDetail,
   StockSummary,
@@ -53,5 +54,7 @@ export const api = {
     get<Positioning>(
       `/stocks/${encodeURIComponent(symbol)}/positioning?window_days=${window_days}`,
     ),
+  patterns: (symbol: string, k = 5) =>
+    get<PatternsResponse>(`/stocks/${encodeURIComponent(symbol)}/patterns?k=${k}`),
   marketFlows: (days = 90) => get<FiiDiiPoint[]>(`/market/flows?days=${days}`),
 };
