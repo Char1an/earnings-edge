@@ -6,11 +6,14 @@ Daily order:
   3. deals             bulk + block rolling CSVs
   4. fii_dii           cash net for last 1-2 days
   5. delivery          updates prices rows with delivery %
-  6. compute_reactions inferred announcement date + reaction metrics for any
+  6. options           nightly option-chain snapshot for F&O stocks (builds
+                       IV rank history over time)
+  7. compute_iv_rank   rolling 252-session IV rank + percentile
+  8. compute_reactions inferred announcement date + reaction metrics for any
                        earnings_event still missing a reaction row
 
 Weekly (Fridays, UTC — same run as the last weekday cron):
-  7. screener_earnings scrape quarterly financials for Nifty 500
+  9. screener_earnings scrape quarterly financials for Nifty 500
 
 Each job wraps its own IngestRun. This wrapper only sequences them and
 prints a summary; one failed job never blocks the next.
@@ -49,10 +52,12 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     # Late imports so a broken import in one source doesn't abort the whole file load.
+    from ingest.sources.compute_iv_rank import compute_iv_rank
     from ingest.sources.compute_reactions import compute_reactions
     from ingest.sources.nse_deals import ingest_deals
     from ingest.sources.nse_delivery import ingest_delivery
     from ingest.sources.nse_fii_dii import ingest_fii_dii
+    from ingest.sources.nse_options import snapshot_options
     from ingest.sources.nse_prices import daily_update as ingest_prices_daily
     from ingest.sources.nse_universe import load_universe
     from ingest.sources.screener_earnings import ingest_earnings
@@ -63,6 +68,8 @@ def main() -> int:
         _run("deals", ingest_deals),
         _run("fii_dii", ingest_fii_dii),
         _run("delivery", ingest_delivery),
+        _run("options", snapshot_options),
+        _run("compute_iv_rank", compute_iv_rank),
     ]
 
     if _should_run_weekly():
