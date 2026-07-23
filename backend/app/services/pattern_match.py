@@ -191,20 +191,22 @@ def find_similar_setups(
     for ev, rx in events_and_reactions:
         vectors.append((ev, rx, _feature_vector(session, ev)))
 
-    # Compute means / stds only from candidate events (exclude anchor itself)
-    per_feature: dict[str, list[float]] = {k: [] for k in FEATURE_KEYS}
+    # Compute means / stds only from candidate events (exclude anchor itself).
+    # NB: loop-variable names avoid shadowing the outer `k` (top-K count) —
+    # Python leaks for-loop vars into the enclosing scope.
+    per_feature: dict[str, list[float]] = {key: [] for key in FEATURE_KEYS}
     for ev, _rx, vec in vectors:
         if ev.id == anchor_ev.id:
             continue
-        for k, v in vec.items():
-            if v is not None:
-                per_feature[k].append(v)
+        for feat_name, feat_val in vec.items():
+            if feat_val is not None:
+                per_feature[feat_name].append(feat_val)
     means: dict[str, float] = {}
     stds: dict[str, float] = {}
-    for k, vals in per_feature.items():
+    for feat_name, vals in per_feature.items():
         m, s = _mean_std(vals)
-        means[k] = round(m, 4)
-        stds[k] = round(s, 4)
+        means[feat_name] = round(m, 4)
+        stds[feat_name] = round(s, 4)
 
     # Standardize + rank
     anchor_vec = next(v for ev, _rx, v in vectors if ev.id == anchor_ev.id)
