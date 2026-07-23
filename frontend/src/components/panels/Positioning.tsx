@@ -77,7 +77,13 @@ export function Positioning({ data }: { data: PositioningData }) {
           label={`DII cash (market, ${data.window_days}d)`}
           value={fmtCr(data.dii_net_window_cr)}
           sub="market-wide, not stock-specific"
-          tone={(data.dii_net_window_cr ?? 0) > 0 ? "pos" : "neg"}
+          tone={
+            data.dii_net_window_cr == null
+              ? "muted"
+              : data.dii_net_window_cr > 0
+                ? "pos"
+                : "neg"
+          }
         />
       </div>
 
