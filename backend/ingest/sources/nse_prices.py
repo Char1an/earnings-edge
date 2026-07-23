@@ -7,8 +7,8 @@ Idempotent: uses ON CONFLICT DO UPDATE keyed on (stock_id, trade_date).
 """
 from __future__ import annotations
 
-import concurrent.futures
 import logging
+import signal
 from datetime import date, timedelta
 
 import pandas as pd
@@ -85,18 +85,29 @@ def _fetch_with_fallback(symbol: str, start: date, end: date) -> pd.DataFrame | 
     return df
 
 
+class _FetchTimeout(Exception):
+    pass
+
+
 def _fetch_with_timeout(
-    symbol: str, start: date, end: date, timeout_s: float = PER_STOCK_TIMEOUT_S
+    symbol: str, start: date, end: date, timeout_s: int = PER_STOCK_TIMEOUT_S
 ) -> pd.DataFrame | None:
-    """Run the fetcher in a worker thread and abandon it if it exceeds timeout_s.
-    One hanging jugaad/NSE request will no longer wedge the whole run."""
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        fut = pool.submit(_fetch_with_fallback, symbol, start, end)
-        try:
-            return fut.result(timeout=timeout_s)
-        except concurrent.futures.TimeoutError:
-            log.warning("fetch timed out after %ss for %s", timeout_s, symbol)
-            return None
+    """SIGALRM-based timeout that actually interrupts blocked socket reads.
+    Unix-only, main-thread-only — fine for our single-threaded ingest CLI."""
+
+    def _handler(signum, frame):
+        raise _FetchTimeout()
+
+    old = signal.signal(signal.SIGALRM, _handler)
+    signal.alarm(int(timeout_s))
+    try:
+        return _fetch_with_fallback(symbol, start, end)
+    except _FetchTimeout:
+        log.warning("fetch timed out after %ss for %s", timeout_s, symbol)
+        return None
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
 
 
 def _upsert_prices(stock_id: int, df: pd.DataFrame | None) -> int:
