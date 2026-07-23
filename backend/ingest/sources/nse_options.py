@@ -66,17 +66,18 @@ def _extract(chain: dict) -> dict | None:
         return None
     spot = float(spot)
 
-    # Find soonest expiry from the payload.
+    # Find soonest FUTURE expiry from the payload. If the endpoint only serves
+    # already-expired chains (weekends, stale data, delisted F&O), skip cleanly
+    # rather than record a snapshot with a negative days_to_expiry.
     expiries: set[date] = set()
     for row in data:
         d = _parse_expiry(str(row.get("expiryDate", "")))
         if d:
             expiries.add(d)
-    if not expiries:
+    future = [e for e in expiries if e >= date.today()]
+    if not future:
         return None
-    nearest = min(e for e in expiries if e >= date.today()) if any(
-        e >= date.today() for e in expiries
-    ) else min(expiries)
+    nearest = min(future)
 
     # Filter to nearest-expiry rows.
     near_rows = [
