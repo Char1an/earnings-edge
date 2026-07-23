@@ -59,7 +59,9 @@ def _fetch_recent_deals(session: Session, stock_id: int, since: date) -> list[De
     rows = session.execute(
         select(Deal)
         .where(and_(Deal.stock_id == stock_id, Deal.trade_date >= since))
-        .order_by(desc(Deal.trade_date), desc(Deal.value_cr))
+        # NULLS LAST so deals without a computed value_cr don't bubble to the top
+        # of the "recent deals" table (Postgres defaults to NULLS FIRST in DESC).
+        .order_by(desc(Deal.trade_date), desc(Deal.value_cr).nulls_last())
     ).scalars()
     return [
         DealOut(
