@@ -193,10 +193,11 @@ def screen(
 
     rows = [r for r in rows if keep(r)]
 
-    # Sort — Nones go last regardless of direction
-    def sort_key(r: ScreenRow):
-        v = getattr(r, sort_by)
-        return (v is None, v if v is not None else 0)
-
-    rows.sort(key=sort_key, reverse=sort_desc)
+    # Sort — always keep Nones at the end, regardless of direction. We can't
+    # just add `v is None` to the tuple because `reverse=True` would flip that
+    # too and float Nones to the top. Partition, then sort each side.
+    with_val = [r for r in rows if getattr(r, sort_by) is not None]
+    without_val = [r for r in rows if getattr(r, sort_by) is None]
+    with_val.sort(key=lambda r: getattr(r, sort_by), reverse=sort_desc)
+    rows = with_val + without_val
     return rows[:limit]
