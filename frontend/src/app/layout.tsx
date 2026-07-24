@@ -14,9 +14,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <header className="border-b border-border">
           <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
-            <Link href="/" className="font-mono text-lg tracking-tight">
-              earnings-<span className="text-accent">edge</span>
-            </Link>
+            <div className="flex items-center gap-6">
+              <Link href="/" className="font-mono text-lg tracking-tight">
+                earnings-<span className="text-accent">edge</span>
+              </Link>
+              <nav className="flex items-center gap-4 text-sm text-muted">
+                <Link href="/screener" className="hover:text-text">
+                  screener
+                </Link>
+              </nav>
+            </div>
             <span className="text-xs text-muted">
               educational / research · not investment advice
             </span>

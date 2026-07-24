@@ -118,3 +118,42 @@ export type PatternsResponse = {
   feature_stds: Record<string, number>;
   matches: MatchedEvent[];
 };
+
+export type ScreenerRow = {
+  symbol: string;
+  name: string | null;
+  sector: string | null;
+  is_fno: boolean;
+  latest_close: number | null;
+  latest_trade_date: string | null;
+  drift_20d: number | null;
+  last_event_id: number | null;
+  last_fiscal_period: string | null;
+  last_announcement_date: string | null;
+  days_since_announcement: number | null;
+  last_yoy_revenue_growth: number | null;
+  last_yoy_pat_growth: number | null;
+  last_gap_open_pct: number | null;
+  last_day1_close_pct: number | null;
+  last_day5_close_pct: number | null;
+  n_reactions: number;
+};
+
+export type ScreenerFilters = {
+  sector?: string;
+  fno_only?: boolean;
+  min_yoy_pat_growth?: number;
+  min_yoy_revenue_growth?: number;
+  max_days_since_announcement?: number;
+  min_drift_20d?: number;
+  min_n_reactions?: number;
+  sort_by?: string;
+  sort_desc?: boolean;
+  limit?: number;
+};
+
+export type ScreenerResponse = {
+  filters: Record<string, unknown>;
+  n: number;
+  rows: ScreenerRow[];
+};

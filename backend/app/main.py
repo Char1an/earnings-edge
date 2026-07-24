@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import earnings, market, patterns, positioning, stocks
+from app.routers import earnings, market, patterns, positioning, screener, stocks
 
 app = FastAPI(
     title="earnings-edge",
@@ -23,6 +23,7 @@ app.include_router(stocks.router, prefix=API_PREFIX)
 app.include_router(earnings.router, prefix=API_PREFIX)
 app.include_router(positioning.router, prefix=API_PREFIX)
 app.include_router(patterns.router, prefix=API_PREFIX)
+app.include_router(screener.router, prefix=API_PREFIX)
 app.include_router(market.router, prefix=API_PREFIX)
 
 

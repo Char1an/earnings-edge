@@ -4,6 +4,8 @@ import type {
   FiiDiiPoint,
   PatternsResponse,
   Positioning,
+  ScreenerFilters,
+  ScreenerResponse,
   StockDetail,
   StockSummary,
 } from "./types";
@@ -56,5 +58,14 @@ export const api = {
     ),
   patterns: (symbol: string, k = 5) =>
     get<PatternsResponse>(`/stocks/${encodeURIComponent(symbol)}/patterns?k=${k}`),
+  screener: (filters: ScreenerFilters = {}) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(filters)) {
+      if (v === undefined || v === null || v === "" || v === false) continue;
+      qs.set(k, String(v));
+    }
+    const q = qs.toString();
+    return get<ScreenerResponse>(`/screener${q ? `?${q}` : ""}`);
+  },
   marketFlows: (days = 90) => get<FiiDiiPoint[]>(`/market/flows?days=${days}`),
 };
