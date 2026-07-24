@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import logging
 import re
+import signal
 import time
 from calendar import monthrange
 from datetime import date
 
 from bs4 import BeautifulSoup, Tag
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.db import SessionLocal
@@ -29,6 +30,27 @@ log = logging.getLogger(__name__)
 BASE = "https://www.screener.in/company/{symbol}/{scope}/"
 MONTHS = {"Mar": 3, "Jun": 6, "Sep": 9, "Dec": 12}
 PER_STOCK_DELAY_S = 0.6  # be nice to Screener; 500 stocks ≈ 5 min
+PER_STOCK_TIMEOUT_S = 25  # hard SIGALRM cap so one hanging fetch cant wedge run
+
+
+class _ScrapeTimeout(Exception):
+    pass
+
+
+def _scrape_one_with_timeout(stock_id: int, symbol: str) -> int:
+    def _handler(signum, frame):
+        raise _ScrapeTimeout()
+
+    old = signal.signal(signal.SIGALRM, _handler)
+    signal.alarm(PER_STOCK_TIMEOUT_S)
+    try:
+        return _scrape_one(stock_id, symbol)
+    except _ScrapeTimeout:
+        log.warning("screener timed out after %ss for %s", PER_STOCK_TIMEOUT_S, symbol)
+        return 0
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
 
 # Map of normalized screener row label → key in our record. Comparison is
 # done on `label.replace(" ", "")` so we tolerate "OPM %" vs "OPM%" etc.
@@ -223,7 +245,16 @@ def _scrape_one(stock_id: int, symbol: str) -> int:
     return _upsert(stock_id, recs)
 
 
-def ingest_earnings(only_symbols: list[str] | None = None, limit: int | None = None) -> int:
+def _stocks_with_earnings(session) -> set[int]:
+    rows = session.execute(select(func.distinct(EarningsEvent.stock_id))).all()
+    return {r[0] for r in rows}
+
+
+def ingest_earnings(
+    only_symbols: list[str] | None = None,
+    limit: int | None = None,
+    skip_populated: bool = False,
+) -> int:
     """Scrape earnings for all Nifty 500 stocks (or a subset)."""
     with track_run("screener_earnings") as run:
         session = SessionLocal()
@@ -232,8 +263,14 @@ def ingest_earnings(only_symbols: list[str] | None = None, limit: int | None = N
             if only_symbols:
                 q = q.where(Stock.symbol.in_(only_symbols))
             stocks = session.execute(q).all()
+            done_ids = _stocks_with_earnings(session) if skip_populated else set()
         finally:
             session.close()
+
+        if skip_populated and done_ids:
+            before = len(stocks)
+            stocks = [s for s in stocks if s[0] not in done_ids]
+            log.info("skipping %d already-populated stocks", before - len(stocks))
 
         if limit:
             stocks = stocks[:limit]
@@ -242,7 +279,7 @@ def ingest_earnings(only_symbols: list[str] | None = None, limit: int | None = N
         failed = 0
         for stock_id, symbol in stocks:
             try:
-                total += _scrape_one(stock_id, symbol)
+                total += _scrape_one_with_timeout(stock_id, symbol)
             except Exception as e:
                 failed += 1
                 log.warning("screener %s failed: %s", symbol, e)
@@ -258,10 +295,19 @@ def ingest_earnings(only_symbols: list[str] | None = None, limit: int | None = N
 if __name__ == "__main__":
     import argparse
 
+    logging.basicConfig(level=logging.WARNING, format="%(name)s: %(levelname)s: %(message)s")
+
     p = argparse.ArgumentParser()
     p.add_argument("--symbols", nargs="*", help="restrict to these symbols (debug)")
     p.add_argument("--limit", type=int, help="cap total stocks scraped (debug)")
+    p.add_argument(
+        "--skip-populated",
+        action="store_true",
+        help="skip stocks that already have any earnings rows",
+    )
     args = p.parse_args()
 
-    n = ingest_earnings(only_symbols=args.symbols, limit=args.limit)
+    n = ingest_earnings(
+        only_symbols=args.symbols, limit=args.limit, skip_populated=args.skip_populated
+    )
     print(f"wrote {n} earnings-event rows")
