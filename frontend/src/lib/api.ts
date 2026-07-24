@@ -2,6 +2,7 @@ import type {
   BaseRatesResponse,
   EarningsHistoryItem,
   FiiDiiPoint,
+  HomeResponse,
   PatternsResponse,
   Positioning,
   ScreenerFilters,
@@ -68,4 +69,12 @@ export const api = {
     return get<ScreenerResponse>(`/screener${q ? `?${q}` : ""}`);
   },
   marketFlows: (days = 90) => get<FiiDiiPoint[]>(`/market/flows?days=${days}`),
+  home: (opts: { upcoming_days?: number; deals_days?: number; flows_days?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (opts.upcoming_days) qs.set("upcoming_days", String(opts.upcoming_days));
+    if (opts.deals_days) qs.set("deals_days", String(opts.deals_days));
+    if (opts.flows_days) qs.set("flows_days", String(opts.flows_days));
+    const q = qs.toString();
+    return get<HomeResponse>(`/home${q ? `?${q}` : ""}`);
+  },
 };

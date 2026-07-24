@@ -157,3 +157,31 @@ export type ScreenerResponse = {
   n: number;
   rows: ScreenerRow[];
 };
+
+export type UpcomingEarning = {
+  symbol: string;
+  name: string | null;
+  sector: string | null;
+  last_fiscal_period: string | null;
+  last_announcement_date: string | null;
+  expected_next_date: string;
+  days_until: number;
+};
+
+export type NotableDeal = {
+  symbol: string;
+  name: string | null;
+  trade_date: string;
+  deal_type: string;
+  buy_sell: string;
+  client_name: string | null;
+  quantity: number;
+  price: number;
+  value_cr: number | null;
+};
+
+export type HomeResponse = {
+  upcoming: UpcomingEarning[];
+  notable_deals: NotableDeal[];
+  fii_dii_series: FiiDiiPoint[];
+};
