@@ -12,10 +12,15 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 function toChart(d: Distribution) {
-  return d.hist_counts.map((c, i) => ({
-    bin: `${d.hist_bin_edges[i]?.toFixed(1) ?? ""}`,
-    count: c,
-  }));
+  return d.hist_counts.map((c, i) => {
+    const edge = d.hist_bin_edges[i];
+    // Normalize negative zero → 0 to avoid "-0.0" bin labels on the axis.
+    const normalized = edge != null && Object.is(edge, -0) ? 0 : edge;
+    return {
+      bin: normalized != null ? normalized.toFixed(1) : "",
+      count: c,
+    };
+  });
 }
 
 function StatRow({ d }: { d: Distribution }) {

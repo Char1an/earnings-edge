@@ -74,12 +74,16 @@ def load_universe() -> int:
             symbol = str(r[sym_col]).strip()
             if not symbol:
                 continue
+            industry = (str(r[ind_col]).strip() or None) if ind_col else None
             rows.append(
                 {
                     "symbol": symbol,
                     "isin": (str(r[isin_col]).strip() or None) if isin_col else None,
                     "name": (str(r[name_col]).strip() or None) if name_col else None,
-                    "industry": (str(r[ind_col]).strip() or None) if ind_col else None,
+                    "industry": industry,
+                    # NSE's Nifty 500 CSV only has "Industry" — reuse it as sector so
+                    # the UI has something to show instead of an empty column.
+                    "sector": industry,
                     "in_nifty50": symbol in nifty50_symbols,
                     "in_nifty500": True,
                     "is_fno": symbol in fno_symbols,
@@ -98,6 +102,7 @@ def load_universe() -> int:
                     "isin": stmt.excluded.isin,
                     "name": stmt.excluded.name,
                     "industry": stmt.excluded.industry,
+                    "sector": stmt.excluded.sector,
                     "in_nifty50": stmt.excluded.in_nifty50,
                     "in_nifty500": stmt.excluded.in_nifty500,
                     "is_fno": stmt.excluded.is_fno,

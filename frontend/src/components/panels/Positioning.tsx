@@ -1,9 +1,10 @@
 import type { Positioning as PositioningData } from "@/lib/types";
 
-const fmtCr = (v: number | null | undefined) =>
-  v == null
-    ? "—"
-    : `${v > 0 ? "+" : ""}₹${v.toLocaleString("en-IN", { maximumFractionDigits: 2 })} Cr`;
+const fmtCr = (v: number | null | undefined) => {
+  if (v == null) return "—";
+  const sign = v > 0 ? "+" : v < 0 ? "-" : "";
+  return `${sign}₹${Math.abs(v).toLocaleString("en-IN", { maximumFractionDigits: 2 })} Cr`;
+};
 
 const fmtPp = (v: number | null | undefined) =>
   v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)} pp`;
