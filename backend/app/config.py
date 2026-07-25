@@ -20,6 +20,17 @@ class Settings(BaseSettings):
     ingest_cache_dir: Path = BACKEND_ROOT / "ingest" / "cache"
     ingest_user_agent: str = "Mozilla/5.0 (Macintosh; earnings-edge research)"
 
+    # Comma-separated list of allowed CORS origins. Overridable per-env so we can
+    # whitelist a new frontend URL without a code change.
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    # Regex fallback so Vercel preview deployments (per-branch subdomains) work
+    # without an env change on every PR.
+    cors_origin_regex: str = r"https://.*\.vercel\.app"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
     @field_validator("database_url")
     @classmethod
     def _normalize_db_url(cls, v: str) -> str:

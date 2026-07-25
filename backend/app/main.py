@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.config import settings
 from app.routers import earnings, home, market, patterns, positioning, screener, stocks
 
 app = FastAPI(
@@ -9,10 +10,12 @@ app = FastAPI(
     description="Indian equity earnings analytics — base rates, positioning, patterns.",
 )
 
-# Permissive CORS for local Next.js dev. Tighten in prod when we have a real domain.
+# CORS origins are env-driven so prod (Vercel URL) can be whitelisted without a code change.
+# `cors_origin_regex` covers Vercel preview subdomains automatically.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=settings.cors_origin_list,
+    allow_origin_regex=settings.cors_origin_regex,
     allow_credentials=True,
     allow_methods=["GET"],
     allow_headers=["*"],
