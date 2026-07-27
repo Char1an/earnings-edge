@@ -144,7 +144,7 @@ Fully deployed on free tiers. See [HANDOFF.md](HANDOFF.md) §9 for the wiring �
 
 ## Known limitations
 
-- **Prices are not split/bonus-adjusted.** jugaad/yfinance return raw. Corporate-action stocks (INFY, WIPRO, TITAN, RELIANCE) show fake ±50% reactions across those events. Fix requires a `corporate_actions` table + adjustment pass — deferred.
+- ~~Prices are not split/bonus-adjusted.~~ **Fixed.** `prices.adj_close` is backfilled from yfinance (836k rows updated) and `compute_reactions` / timelines endpoint / `pattern_match._drift_20d` use it via COALESCE with raw close as fallback. Reaction max magnitudes for COCHINSHIP, INFY, WIPRO, TITAN, RELIANCE all now sit in the realistic 8-24% range.
 - **Screener match rate: 463/500.** 37 stocks have names that don't cleanly map to NSE symbols on Screener. Per-symbol slug mapping would fix it.
 - **FII/DII flows are market-wide, not per-stock.** No free per-stock institutional flow data exists on Indian markets.
 - **Options history starts from first nightly cron run.** IV rank is only meaningful after ~20 sessions of snapshots.
@@ -153,7 +153,6 @@ Fully deployed on free tiers. See [HANDOFF.md](HANDOFF.md) §9 for the wiring �
 
 ## Roadmap
 
-- Corporate-action ingest + price adjustment (fix the split/bonus limitation)
 - Shareholding-pattern quarterly ingest (per-stock FII/DII, better than market-wide)
 - Watchlist on the home page (localStorage)
 - Symbol-mapping table for the 37 missing Screener stocks
