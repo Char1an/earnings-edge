@@ -185,3 +185,18 @@ export type HomeResponse = {
   notable_deals: NotableDeal[];
   fii_dii_series: FiiDiiPoint[];
 };
+
+export type TimelinePoint = {
+  offset: number;         // trading-day offset from result day (0 = result day)
+  trade_date: string;
+  close: number;
+  pct_from_pre: number;   // % vs pre-event close (0% at offset -1)
+};
+
+export type EventTimeline = {
+  event_id: number;
+  fiscal_period: string;
+  announcement_date: string;
+  pre_close: number;
+  points: TimelinePoint[];
+};

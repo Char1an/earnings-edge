@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { BaseRates } from "@/components/panels/BaseRates";
+import { EventTimelineChart } from "@/components/panels/EventTimelineChart";
 import { HistoricalEarnings } from "@/components/panels/HistoricalEarnings";
 import { PatternMatch } from "@/components/panels/PatternMatch";
 import { Positioning } from "@/components/panels/Positioning";
@@ -21,11 +22,12 @@ export default async function StockPage({ params }: Props) {
     notFound();
   }
 
-  const [history, rates, positioning, patterns] = await Promise.all([
+  const [history, rates, positioning, patterns, timelines] = await Promise.all([
     api.earningsHistory(symbol, 20).catch(() => []),
     api.baseRates(symbol).catch(() => null),
     api.positioning(symbol, 30).catch(() => null),
     api.patterns(symbol, 5).catch(() => null),
+    api.earningsTimelines(symbol, 10, 20).catch(() => []),
   ]);
 
   return (
@@ -72,7 +74,17 @@ export default async function StockPage({ params }: Props) {
             reactions with low confidence should be treated as noise
           </div>
         </div>
-        <HistoricalEarnings items={history} />
+        <HistoricalEarnings items={history} timelines={timelines} />
+      </section>
+
+      <section>
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-lg font-medium">Event timeline (±10 trading days)</h2>
+          <div className="text-xs text-muted">
+            pre-event drift · result day · post-event drift · baseline = pre-close
+          </div>
+        </div>
+        <EventTimelineChart timelines={timelines} />
       </section>
 
       <section>

@@ -1,4 +1,5 @@
-import type { EarningsHistoryItem } from "@/lib/types";
+import { EventSparkline } from "@/components/EventSparkline";
+import type { EarningsHistoryItem, EventTimeline } from "@/lib/types";
 
 const fmtPct = (v: number | null | undefined) =>
   v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
@@ -14,7 +15,14 @@ function pctClass(v: number | null | undefined) {
   return "text-text";
 }
 
-export function HistoricalEarnings({ items }: { items: EarningsHistoryItem[] }) {
+export function HistoricalEarnings({
+  items,
+  timelines = [],
+}: {
+  items: EarningsHistoryItem[];
+  timelines?: EventTimeline[];
+}) {
+  const timelineById = new Map(timelines.map((t) => [t.event_id, t]));
   if (!items.length) {
     return (
       <div className="text-sm text-muted p-4 border border-border rounded-md bg-panel">
@@ -39,35 +47,42 @@ export function HistoricalEarnings({ items }: { items: EarningsHistoryItem[] }) 
             <th className="text-right px-3 py-2">Day5</th>
             <th className="text-right px-3 py-2">Vol×</th>
             <th className="text-right px-3 py-2">Conf</th>
+            <th className="text-right px-3 py-2">Path (±10d)</th>
           </tr>
         </thead>
         <tbody>
-          {items.map(({ event: e, reaction: r }) => (
-            <tr key={e.id} className="border-b border-border/60 last:border-b-0">
-              <td className="px-3 py-2">{e.fiscal_period}</td>
-              <td className="px-3 py-2 text-right text-muted">
-                {e.announcement_date ?? "—"}
-              </td>
-              <td className="px-3 py-2 text-right">{fmtCr(e.revenue_cr)}</td>
-              <td className="px-3 py-2 text-right">{fmtCr(e.pat_cr)}</td>
-              <td className={`px-3 py-2 text-right ${pctClass(e.yoy_pat_growth)}`}>
-                {fmtPct(e.yoy_pat_growth)}
-              </td>
-              <td className={`px-3 py-2 text-right ${pctClass(r?.gap_open_pct)}`}>
-                {fmtPct(r?.gap_open_pct ?? null)}
-              </td>
-              <td className={`px-3 py-2 text-right ${pctClass(r?.day1_close_pct)}`}>
-                {fmtPct(r?.day1_close_pct ?? null)}
-              </td>
-              <td className={`px-3 py-2 text-right ${pctClass(r?.day5_close_pct)}`}>
-                {fmtPct(r?.day5_close_pct ?? null)}
-              </td>
-              <td className="px-3 py-2 text-right text-muted">{fmtNum(r?.volume_spike)}</td>
-              <td className="px-3 py-2 text-right text-muted">
-                {fmtNum(r?.detection_confidence)}
-              </td>
-            </tr>
-          ))}
+          {items.map(({ event: e, reaction: r }) => {
+            const tl = timelineById.get(e.id);
+            return (
+              <tr key={e.id} className="border-b border-border/60 last:border-b-0">
+                <td className="px-3 py-2">{e.fiscal_period}</td>
+                <td className="px-3 py-2 text-right text-muted">
+                  {e.announcement_date ?? "—"}
+                </td>
+                <td className="px-3 py-2 text-right">{fmtCr(e.revenue_cr)}</td>
+                <td className="px-3 py-2 text-right">{fmtCr(e.pat_cr)}</td>
+                <td className={`px-3 py-2 text-right ${pctClass(e.yoy_pat_growth)}`}>
+                  {fmtPct(e.yoy_pat_growth)}
+                </td>
+                <td className={`px-3 py-2 text-right ${pctClass(r?.gap_open_pct)}`}>
+                  {fmtPct(r?.gap_open_pct ?? null)}
+                </td>
+                <td className={`px-3 py-2 text-right ${pctClass(r?.day1_close_pct)}`}>
+                  {fmtPct(r?.day1_close_pct ?? null)}
+                </td>
+                <td className={`px-3 py-2 text-right ${pctClass(r?.day5_close_pct)}`}>
+                  {fmtPct(r?.day5_close_pct ?? null)}
+                </td>
+                <td className="px-3 py-2 text-right text-muted">{fmtNum(r?.volume_spike)}</td>
+                <td className="px-3 py-2 text-right text-muted">
+                  {fmtNum(r?.detection_confidence)}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {tl ? <EventSparkline points={tl.points} /> : <span className="text-muted">—</span>}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

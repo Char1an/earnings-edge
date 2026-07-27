@@ -40,6 +40,21 @@ class EarningsHistoryItem(BaseModel):
     reaction: EarningsReactionOut | None
 
 
+class TimelinePoint(BaseModel):
+    offset: int
+    trade_date: date
+    close: float
+    pct_from_pre: float
+
+
+class EventTimeline(BaseModel):
+    event_id: int
+    fiscal_period: str
+    announcement_date: date
+    pre_close: float
+    points: list[TimelinePoint]
+
+
 class Distribution(BaseModel):
     metric: str
     n: int

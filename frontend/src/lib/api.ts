@@ -1,6 +1,7 @@
 import type {
   BaseRatesResponse,
   EarningsHistoryItem,
+  EventTimeline,
   FiiDiiPoint,
   HomeResponse,
   PatternsResponse,
@@ -39,6 +40,10 @@ export const api = {
   earningsHistory: (symbol: string, limit = 20) =>
     get<EarningsHistoryItem[]>(
       `/stocks/${encodeURIComponent(symbol)}/earnings/history?limit=${limit}`,
+    ),
+  earningsTimelines: (symbol: string, window = 10, limit = 20) =>
+    get<EventTimeline[]>(
+      `/stocks/${encodeURIComponent(symbol)}/earnings/timelines?window=${window}&limit=${limit}`,
     ),
   baseRates: (
     symbol: string,
