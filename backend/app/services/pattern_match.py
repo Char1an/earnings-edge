@@ -70,9 +70,10 @@ class PatternResult:
 
 def _drift_20d(session: Session, stock_id: int, ref_date) -> float | None:
     """Return (close_t / close_t-20 - 1) * 100 using the 21 sessions up to and
-    including ref_date. None if there isn't enough history."""
+    including ref_date. Split-adjusted (adj_close where available). None if
+    there isn't enough history."""
     rows = session.execute(
-        select(Price.trade_date, Price.close)
+        select(Price.trade_date, Price.close, Price.adj_close)
         .where(Price.stock_id == stock_id)
         .where(Price.trade_date <= ref_date)
         .order_by(desc(Price.trade_date))
@@ -80,7 +81,7 @@ def _drift_20d(session: Session, stock_id: int, ref_date) -> float | None:
     ).all()
     if len(rows) < 21:
         return None
-    closes = [float(r[1]) for r in rows]
+    closes = [float(r.adj_close if r.adj_close is not None else r.close) for r in rows]
     latest, older = closes[0], closes[-1]
     if older == 0:
         return None

@@ -18,6 +18,10 @@ class Price(Base):
     high: Mapped[float] = mapped_column(Numeric(18, 4))
     low: Mapped[float] = mapped_column(Numeric(18, 4))
     close: Mapped[float] = mapped_column(Numeric(18, 4))
+    # Split/bonus-adjusted close from yfinance's `Adj Close`. Nullable — falls back
+    # to `close` in downstream compute (see COALESCE in compute_reactions and the
+    # earnings/timelines endpoint).
+    adj_close: Mapped[float | None] = mapped_column(Numeric(18, 4))
     volume: Mapped[int | None] = mapped_column(BigInteger)
     turnover_cr: Mapped[float | None] = mapped_column(Numeric(18, 4))
     delivery_qty: Mapped[int | None] = mapped_column(BigInteger)

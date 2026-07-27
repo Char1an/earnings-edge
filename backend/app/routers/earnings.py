@@ -118,7 +118,7 @@ def earnings_timelines(
     span_end = max(ann_dates) + buffer
 
     price_rows = session.execute(
-        select(Price.trade_date, Price.close)
+        select(Price.trade_date, Price.close, Price.adj_close)
         .where(Price.stock_id == stock.id)
         .where(Price.trade_date.between(span_start, span_end))
         .order_by(asc(Price.trade_date))
@@ -127,7 +127,8 @@ def earnings_timelines(
         return []
 
     date_list = [r.trade_date for r in price_rows]
-    close_list = [float(r.close) for r in price_rows]
+    # Prefer adj_close; fall back to raw close for rows yfinance didn't cover.
+    close_list = [float(r.adj_close if r.adj_close is not None else r.close) for r in price_rows]
 
     out: list[EventTimeline] = []
     for ev in events:

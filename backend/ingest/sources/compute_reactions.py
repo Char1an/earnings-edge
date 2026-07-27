@@ -39,9 +39,17 @@ MIN_WINDOW_ROWS = 8      # skip events without enough surrounding data
 
 
 def _load_prices(session, stock_id: int, start: date, end: date) -> pd.DataFrame:
+    """Load prices, split-adjusted where prices.adj_close is populated.
+
+    We apply adj_close/close as a per-row multiplier to open/high/low so gap %,
+    day-1 high/low, and reaction close all live in the same adjusted space.
+    Rows without adj_close pass through unchanged (COALESCE-style fallback).
+    """
     q = (
         select(
-            Price.trade_date, Price.open, Price.high, Price.low, Price.close, Price.volume
+            Price.trade_date,
+            Price.open, Price.high, Price.low, Price.close,
+            Price.adj_close, Price.volume,
         )
         .where(Price.stock_id == stock_id)
         .where(Price.trade_date >= start)
@@ -49,15 +57,22 @@ def _load_prices(session, stock_id: int, start: date, end: date) -> pd.DataFrame
         .order_by(Price.trade_date.asc())
     )
     rows = session.execute(q).all()
+    cols = ["trade_date", "open", "high", "low", "close", "adj_close", "volume"]
     if not rows:
-        return pd.DataFrame(
-            columns=["trade_date", "open", "high", "low", "close", "volume"]
-        )
-    df = pd.DataFrame(rows, columns=["trade_date", "open", "high", "low", "close", "volume"])
+        return pd.DataFrame(columns=["trade_date", "open", "high", "low", "close", "volume"])
+    df = pd.DataFrame(rows, columns=cols)
     for c in ("open", "high", "low", "close"):
         df[c] = df[c].astype(float)
+    df["adj_close"] = pd.to_numeric(df["adj_close"], errors="coerce")
     df["volume"] = df["volume"].fillna(0).astype("int64")
-    return df
+
+    # Adjustment ratio: adj_close / close on rows where adj_close is known,
+    # else 1.0. Apply to open/high/low, then overwrite close.
+    ratio = (df["adj_close"] / df["close"]).where(df["adj_close"].notna(), 1.0)
+    for c in ("open", "high", "low"):
+        df[c] = df[c] * ratio
+    df["close"] = df["adj_close"].where(df["adj_close"].notna(), df["close"])
+    return df.drop(columns=["adj_close"])
 
 
 def _enrich(df: pd.DataFrame) -> pd.DataFrame:
