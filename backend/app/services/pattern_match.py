@@ -15,6 +15,7 @@ event with no reaction has no "what happened next" to report).
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -29,7 +30,22 @@ FEATURE_KEYS = (
     "qoq_revenue_growth",
     "qoq_pat_growth",
     "drift_20d",
+    # Cyclical encoding of fiscal quarter so same-quarter events (Q1↔Q1) contribute
+    # +1 to the dot product and opposite-quarter events (Q1↔Q3) contribute -1 —
+    # the growth-only vector was missing this: TCS Q1FY27 vs Q1FY25 had near-
+    # identical day-5 reactions but sim ≈ 0 because YoY numbers diverged.
+    "fiscal_q_sin",
+    "fiscal_q_cos",
 )
+
+_FISCAL_Q_RE = re.compile(r"^Q([1-4])FY\d+$", re.IGNORECASE)
+
+
+def _parse_quarter(fiscal_period: str | None) -> int | None:
+    if not fiscal_period:
+        return None
+    m = _FISCAL_Q_RE.match(fiscal_period.strip())
+    return int(m.group(1)) if m else None
 
 
 @dataclass(frozen=True)
@@ -78,12 +94,21 @@ def _feature_vector(session: Session, event: EarningsEvent) -> dict[str, float |
     elif event.quarter_end is not None:
         ref_date = event.quarter_end
     drift = _drift_20d(session, event.stock_id, ref_date) if ref_date else None
+    q = _parse_quarter(event.fiscal_period)
+    if q is None:
+        q_sin, q_cos = None, None
+    else:
+        angle = 2 * math.pi * (q - 1) / 4
+        q_sin = round(math.sin(angle), 6)
+        q_cos = round(math.cos(angle), 6)
     return {
         "yoy_revenue_growth": _f(event.yoy_revenue_growth),
         "yoy_pat_growth": _f(event.yoy_pat_growth),
         "qoq_revenue_growth": _f(event.qoq_revenue_growth),
         "qoq_pat_growth": _f(event.qoq_pat_growth),
         "drift_20d": drift,
+        "fiscal_q_sin": q_sin,
+        "fiscal_q_cos": q_cos,
     }
 
 
