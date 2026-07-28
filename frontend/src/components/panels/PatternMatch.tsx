@@ -1,4 +1,5 @@
-import type { PatternsResponse } from "@/lib/types";
+import { EventSparkline } from "@/components/EventSparkline";
+import type { EventTimeline, PatternsResponse } from "@/lib/types";
 
 const FEATURE_LABELS: Record<string, string> = {
   yoy_revenue_growth: "YoY rev",
@@ -21,7 +22,15 @@ function pctClass(v: number | null | undefined) {
   return "text-text";
 }
 
-export function PatternMatch({ data }: { data: PatternsResponse }) {
+export function PatternMatch({
+  data,
+  timelines = [],
+}: {
+  data: PatternsResponse;
+  timelines?: EventTimeline[];
+}) {
+  const timelineById = new Map(timelines.map((t) => [t.event_id, t]));
+
   if (data.anchor_event_id == null || data.matches.length === 0) {
     return (
       <div className="text-sm text-muted p-4 border border-border rounded-md bg-panel">
@@ -65,33 +74,40 @@ export function PatternMatch({ data }: { data: PatternsResponse }) {
               <th className="text-right px-3 py-2">Gap</th>
               <th className="text-right px-3 py-2">Day1</th>
               <th className="text-right px-3 py-2">Day5</th>
+              <th className="text-right px-3 py-2">Path (±10d)</th>
             </tr>
           </thead>
           <tbody>
-            {data.matches.map((m) => (
-              <tr key={m.event_id} className="border-b border-border/60 last:border-b-0">
-                <td className="px-3 py-2">{fmtSim(m.similarity)}</td>
-                <td className="px-3 py-2">{m.fiscal_period}</td>
-                <td className="px-3 py-2 text-right text-muted">
-                  {m.announcement_date ?? "—"}
-                </td>
-                <td className={`px-3 py-2 text-right ${pctClass(m.features.yoy_pat_growth)}`}>
-                  {fmtPct(m.features.yoy_pat_growth)}
-                </td>
-                <td className={`px-3 py-2 text-right ${pctClass(m.features.drift_20d)}`}>
-                  {fmtPct(m.features.drift_20d)}
-                </td>
-                <td className={`px-3 py-2 text-right ${pctClass(m.reaction?.gap_open_pct)}`}>
-                  {fmtPct(m.reaction?.gap_open_pct ?? null)}
-                </td>
-                <td className={`px-3 py-2 text-right ${pctClass(m.reaction?.day1_close_pct)}`}>
-                  {fmtPct(m.reaction?.day1_close_pct ?? null)}
-                </td>
-                <td className={`px-3 py-2 text-right ${pctClass(m.reaction?.day5_close_pct)}`}>
-                  {fmtPct(m.reaction?.day5_close_pct ?? null)}
-                </td>
-              </tr>
-            ))}
+            {data.matches.map((m) => {
+              const tl = timelineById.get(m.event_id);
+              return (
+                <tr key={m.event_id} className="border-b border-border/60 last:border-b-0">
+                  <td className="px-3 py-2">{fmtSim(m.similarity)}</td>
+                  <td className="px-3 py-2">{m.fiscal_period}</td>
+                  <td className="px-3 py-2 text-right text-muted">
+                    {m.announcement_date ?? "—"}
+                  </td>
+                  <td className={`px-3 py-2 text-right ${pctClass(m.features.yoy_pat_growth)}`}>
+                    {fmtPct(m.features.yoy_pat_growth)}
+                  </td>
+                  <td className={`px-3 py-2 text-right ${pctClass(m.features.drift_20d)}`}>
+                    {fmtPct(m.features.drift_20d)}
+                  </td>
+                  <td className={`px-3 py-2 text-right ${pctClass(m.reaction?.gap_open_pct)}`}>
+                    {fmtPct(m.reaction?.gap_open_pct ?? null)}
+                  </td>
+                  <td className={`px-3 py-2 text-right ${pctClass(m.reaction?.day1_close_pct)}`}>
+                    {fmtPct(m.reaction?.day1_close_pct ?? null)}
+                  </td>
+                  <td className={`px-3 py-2 text-right ${pctClass(m.reaction?.day5_close_pct)}`}>
+                    {fmtPct(m.reaction?.day5_close_pct ?? null)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {tl ? <EventSparkline points={tl.points} /> : <span className="text-muted">—</span>}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

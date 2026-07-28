@@ -37,3 +37,4 @@ frontend/.env*
 .vscode/
 .idea/
 *.swp
+/.claude/

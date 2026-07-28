@@ -1,16 +1,13 @@
 import { notFound } from "next/navigation";
 
+import { StockHero } from "@/components/StockHero";
 import { BaseRates } from "@/components/panels/BaseRates";
-import { EventTimelineChart } from "@/components/panels/EventTimelineChart";
-import { HistoricalEarnings } from "@/components/panels/HistoricalEarnings";
+import { EarningsView } from "@/components/panels/EarningsView";
 import { PatternMatch } from "@/components/panels/PatternMatch";
 import { Positioning } from "@/components/panels/Positioning";
 import { api } from "@/lib/api";
 
 type Props = { params: { symbol: string } };
-
-const fmtRs = (v: number | null | undefined) =>
-  v == null ? "—" : `₹${v.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
 export default async function StockPage({ params }: Props) {
   const symbol = decodeURIComponent(params.symbol).toUpperCase();
@@ -27,29 +24,27 @@ export default async function StockPage({ params }: Props) {
     api.baseRates(symbol).catch(() => null),
     api.positioning(symbol, 30).catch(() => null),
     api.patterns(symbol, 5).catch(() => null),
-    api.earningsTimelines(symbol, 10, 20).catch(() => []),
+    api.earningsTimelines(symbol, 10, 40).catch(() => []),
   ]);
+
+  const latestReaction = history[0]?.reaction ?? null;
+  const baseRateMarkers = latestReaction
+    ? {
+        gap_open_pct: latestReaction.gap_open_pct,
+        day1_close_pct: latestReaction.day1_close_pct,
+        day3_close_pct: latestReaction.day3_close_pct,
+        day5_close_pct: latestReaction.day5_close_pct,
+      }
+    : undefined;
 
   return (
     <div className="space-y-8">
-      <div className="flex items-baseline justify-between flex-wrap gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold font-mono">{stock.symbol}</h1>
-          <div className="text-sm text-muted">
-            {stock.name ?? ""} {stock.sector ? `· ${stock.sector}` : ""}{" "}
-            {stock.is_fno ? "· F&O" : ""}
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-lg font-mono">{fmtRs(stock.latest_close)}</div>
-          <div className="text-xs text-muted">
-            as of {stock.latest_trade_date ?? "—"}
-            {stock.latest_delivery_pct != null
-              ? ` · delivery ${stock.latest_delivery_pct.toFixed(1)}%`
-              : ""}
-          </div>
-        </div>
-      </div>
+      <StockHero
+        stock={stock}
+        history={history}
+        rates={rates}
+        positioning={positioning}
+      />
 
       <section>
         <div className="flex items-baseline justify-between mb-3">
@@ -69,22 +64,12 @@ export default async function StockPage({ params }: Props) {
 
       <section>
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-lg font-medium">Historical earnings ({history.length})</h2>
+          <h2 className="text-lg font-medium">Earnings history &amp; timeline ({history.length})</h2>
           <div className="text-xs text-muted">
-            reactions with low confidence should be treated as noise
+            hover any row to preview its price path · click to pin
           </div>
         </div>
-        <HistoricalEarnings items={history} timelines={timelines} />
-      </section>
-
-      <section>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-lg font-medium">Event timeline (±10 trading days)</h2>
-          <div className="text-xs text-muted">
-            pre-event drift · result day · post-event drift · baseline = pre-close
-          </div>
-        </div>
-        <EventTimelineChart timelines={timelines} />
+        <EarningsView items={history} timelines={timelines} />
       </section>
 
       <section>
@@ -93,11 +78,11 @@ export default async function StockPage({ params }: Props) {
             Base rates {rates ? `(${rates.n_events} events)` : ""}
           </h2>
           <div className="text-xs text-muted">
-            distribution of past reactions — median &amp; quartiles
+            distribution of past reactions · orange line = last event's outcome
           </div>
         </div>
         {rates ? (
-          <BaseRates data={rates} />
+          <BaseRates data={rates} markers={baseRateMarkers} />
         ) : (
           <div className="text-sm text-muted p-4 border border-border rounded-md bg-panel">
             base rates unavailable — reactions have not been computed yet
@@ -113,7 +98,7 @@ export default async function StockPage({ params }: Props) {
           </div>
         </div>
         {patterns ? (
-          <PatternMatch data={patterns} />
+          <PatternMatch data={patterns} timelines={timelines} />
         ) : (
           <div className="text-sm text-muted p-4 border border-border rounded-md bg-panel">
             pattern match unavailable — need more earnings history + reactions

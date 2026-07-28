@@ -1,3 +1,5 @@
+"use client";
+
 import { EventSparkline } from "@/components/EventSparkline";
 import type { EarningsHistoryItem, EventTimeline } from "@/lib/types";
 
@@ -18,9 +20,17 @@ function pctClass(v: number | null | undefined) {
 export function HistoricalEarnings({
   items,
   timelines = [],
+  selectedId = null,
+  pinnedId = null,
+  onHover,
+  onPin,
 }: {
   items: EarningsHistoryItem[];
   timelines?: EventTimeline[];
+  selectedId?: number | null;
+  pinnedId?: number | null;
+  onHover?: (id: number | null) => void;
+  onPin?: (id: number) => void;
 }) {
   const timelineById = new Map(timelines.map((t) => [t.event_id, t]));
   if (!items.length) {
@@ -53,9 +63,33 @@ export function HistoricalEarnings({
         <tbody>
           {items.map(({ event: e, reaction: r }) => {
             const tl = timelineById.get(e.id);
+            const isSelected = e.id === selectedId;
+            const isPinned = e.id === pinnedId;
+            const interactive = tl != null && (onHover || onPin);
             return (
-              <tr key={e.id} className="border-b border-border/60 last:border-b-0">
-                <td className="px-3 py-2">{e.fiscal_period}</td>
+              <tr
+                key={e.id}
+                onMouseEnter={interactive && onHover ? () => onHover(e.id) : undefined}
+                onMouseLeave={interactive && onHover ? () => onHover(null) : undefined}
+                onClick={interactive && onPin ? () => onPin(e.id) : undefined}
+                className={[
+                  "border-b border-border/60 last:border-b-0 transition-colors",
+                  interactive ? "cursor-pointer" : "",
+                  isSelected ? "bg-border/50" : "hover:bg-border/25",
+                ].join(" ")}
+                title={interactive ? "hover to preview timeline, click to pin" : undefined}
+              >
+                <td className="px-3 py-2">
+                  <span className="inline-flex items-center gap-1.5">
+                    {isPinned && (
+                      <span
+                        className="inline-block w-1.5 h-1.5 rounded-full bg-accent"
+                        aria-label="pinned"
+                      />
+                    )}
+                    {e.fiscal_period}
+                  </span>
+                </td>
                 <td className="px-3 py-2 text-right text-muted">
                   {e.announcement_date ?? "—"}
                 </td>

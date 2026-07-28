@@ -14,14 +14,29 @@ import {
 
 import type { EventTimeline } from "@/lib/types";
 
-export function EventTimelineChart({ timelines }: { timelines: EventTimeline[] }) {
-  const [selectedId, setSelectedId] = useState<number | null>(
+/**
+ * `selectedId` and `onSelect` make this a controlled component when passed
+ * (used from EarningsView so hovering a table row updates the chart). Falls
+ * back to internal state when used standalone.
+ */
+export function EventTimelineChart({
+  timelines,
+  selectedId,
+  onSelect,
+}: {
+  timelines: EventTimeline[];
+  selectedId?: number | null;
+  onSelect?: (id: number) => void;
+}) {
+  const [internalId, setInternalId] = useState<number | null>(
     timelines[0]?.event_id ?? null,
   );
+  const activeId = selectedId ?? internalId;
+  const setActive = onSelect ?? setInternalId;
 
   const selected = useMemo(
-    () => timelines.find((t) => t.event_id === selectedId) ?? timelines[0],
-    [timelines, selectedId],
+    () => timelines.find((t) => t.event_id === activeId) ?? timelines[0],
+    [timelines, activeId],
   );
 
   if (!timelines.length || !selected) {
@@ -52,7 +67,7 @@ export function EventTimelineChart({ timelines }: { timelines: EventTimeline[] }
           return (
             <button
               key={t.event_id}
-              onClick={() => setSelectedId(t.event_id)}
+              onClick={() => setActive(t.event_id)}
               className={`text-xs font-mono px-2 py-1 rounded border transition-colors ${
                 active
                   ? "bg-border border-border text-text"

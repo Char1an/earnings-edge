@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import type { BaseRatesResponse, Distribution } from "@/lib/types";
 
@@ -18,13 +18,39 @@ function toChart(d: Distribution) {
     const normalized = edge != null && Object.is(edge, -0) ? 0 : edge;
     return {
       bin: normalized != null ? normalized.toFixed(1) : "",
+      binVal: normalized,
       count: c,
     };
   });
 }
 
-function StatRow({ d }: { d: Distribution }) {
+/**
+ * Closest histogram bin label for a value — used to position a ReferenceLine
+ * on a Recharts BarChart with categorical XAxis.
+ */
+function nearestBinLabel(d: Distribution, value: number): string | null {
+  if (d.hist_bin_edges.length === 0) return null;
+  let bestIdx = 0;
+  let bestDist = Infinity;
+  for (let i = 0; i < d.hist_bin_edges.length; i++) {
+    const dist = Math.abs(d.hist_bin_edges[i] - value);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestIdx = i;
+    }
+  }
+  const raw = d.hist_bin_edges[bestIdx];
+  const normalized = raw != null && Object.is(raw, -0) ? 0 : raw;
+  return normalized != null ? normalized.toFixed(1) : null;
+}
+
+function StatRow({ d, marker }: { d: Distribution; marker: number | null }) {
   const label = METRIC_LABELS[d.metric] ?? d.metric;
+  const markerLabel = marker != null && d.n > 0 ? nearestBinLabel(d, marker) : null;
+  const markerPercentile =
+    marker != null && d.n > 0 && d.min != null && d.max != null && d.max > d.min
+      ? Math.round(((marker - d.min) / (d.max - d.min)) * 100)
+      : null;
   return (
     <div className="border border-border rounded-md bg-panel">
       <div className="flex items-baseline justify-between px-3 py-2 border-b border-border">
@@ -61,10 +87,30 @@ function StatRow({ d }: { d: Distribution }) {
                     fontSize: 12,
                   }}
                 />
+                {markerLabel != null && (
+                  <ReferenceLine
+                    x={markerLabel}
+                    stroke="#f0883e"
+                    strokeWidth={2}
+                    strokeDasharray="3 3"
+                    label={{
+                      value: "last",
+                      position: "top",
+                      fill: "#f0883e",
+                      fontSize: 9,
+                    }}
+                  />
+                )}
                 <Bar dataKey="count" fill="#3fb950" />
               </BarChart>
             </ResponsiveContainer>
           </div>
+          {marker != null && markerPercentile != null && (
+            <div className="px-3 py-2 border-t border-border text-[11px] text-muted font-mono">
+              last event: {marker > 0 ? "+" : ""}
+              {marker.toFixed(2)}% · sits at ~{markerPercentile}th percentile of history
+            </div>
+          )}
         </>
       )}
     </div>
@@ -80,7 +126,13 @@ function Stat({ k, v, pct }: { k: string; v: number | null; pct?: boolean }) {
   );
 }
 
-export function BaseRates({ data }: { data: BaseRatesResponse }) {
+export function BaseRates({
+  data,
+  markers,
+}: {
+  data: BaseRatesResponse;
+  markers?: Record<string, number | null>;
+}) {
   const metrics = ["gap_open_pct", "day1_close_pct", "day3_close_pct", "day5_close_pct"];
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -96,7 +148,7 @@ export function BaseRates({ data }: { data: BaseRatesResponse }) {
             </div>
           );
         }
-        return <StatRow key={m} d={d} />;
+        return <StatRow key={m} d={d} marker={markers?.[m] ?? null} />;
       })}
     </div>
   );
