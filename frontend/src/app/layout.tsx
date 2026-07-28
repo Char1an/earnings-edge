@@ -13,9 +13,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <header className="border-b border-border">
-          <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between">
+          <div className="mx-auto max-w-6xl px-6 py-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-6">
-              <Link href="/" className="font-mono text-lg tracking-tight">
+              <Link
+                href="/"
+                className="font-mono text-lg tracking-tight whitespace-nowrap"
+              >
                 earnings-<span className="text-accent">edge</span>
               </Link>
               <nav className="flex items-center gap-4 text-sm text-muted">
@@ -24,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               </nav>
             </div>
-            <span className="text-xs text-muted">
+            <span className="hidden sm:block text-xs text-muted text-right">
               educational / research · not investment advice
             </span>
           </div>

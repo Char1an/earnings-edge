@@ -69,7 +69,7 @@ function headline(
   const drift = positioning?.delivery_pct_delta;
   if (drift != null && Math.abs(drift) > 1) {
     parts.push(
-      `delivery-% ${drift > 0 ? "running" : "fading"} ${drift > 0 ? "+" : ""}${drift.toFixed(1)}pt vs 90-day baseline`,
+      `delivery-% ${drift > 0 ? "running" : "fading"} ${drift > 0 ? "+" : ""}${drift.toFixed(1)}pt vs its recent baseline`,
     );
   }
 
@@ -180,8 +180,9 @@ export function StockHero({
               share of the day's traded volume. High delivery = genuine buying/holding;
               low = day-trading churn.
               <br />
-              This tile shows recent 30-day average minus 90-day baseline, in percentage
-              points. Positive = accumulation trend; negative = churn.
+              This tile shows the last 20 trading sessions' average minus the 60 sessions
+              before that, in percentage points. Positive = accumulation trend; negative =
+              churn.
             </>
           }
           value={
@@ -189,7 +190,7 @@ export function StockHero({
               ? `${deliveryDelta > 0 ? "+" : ""}${deliveryDelta.toFixed(1)}pt`
               : "—"
           }
-          sub="30d avg vs 90d baseline"
+          sub="last 20 sessions vs prior 60"
           tone={
             deliveryDelta == null
               ? "neutral"

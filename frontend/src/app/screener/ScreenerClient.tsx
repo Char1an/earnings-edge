@@ -67,25 +67,33 @@ export default function ScreenerClient() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const run = useCallback(async () => {
-    setBusy(true);
-    setErr(null);
-    try {
-      const res = await api.screener(filters);
-      setData(res);
-      // URL-sync
-      const params = new URLSearchParams();
-      for (const [k, v] of Object.entries(filters)) {
-        if (v === undefined || v === null || v === "" || v === false) continue;
-        params.set(k, String(v));
+  // Runs the screen for a specific filter set (defaults to current state) and
+  // syncs the URL to match. Taking an explicit argument lets Reset run with the
+  // fresh defaults without waiting for the async setFilters to settle.
+  const run = useCallback(
+    async (override?: ScreenerFilters) => {
+      const active = override ?? filters;
+      setBusy(true);
+      setErr(null);
+      try {
+        const res = await api.screener(active);
+        setData(res);
+        // URL-sync
+        const params = new URLSearchParams();
+        for (const [k, v] of Object.entries(active)) {
+          if (v === undefined || v === null || v === "" || v === false) continue;
+          params.set(k, String(v));
+        }
+        const qs = params.toString();
+        router.replace(qs ? `/screener?${qs}` : "/screener", { scroll: false });
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : String(e));
+      } finally {
+        setBusy(false);
       }
-      router.replace(`/screener?${params.toString()}`, { scroll: false });
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }, [filters, router]);
+    },
+    [filters, router],
+  );
 
   useEffect(() => {
     run();
@@ -94,6 +102,16 @@ export default function ScreenerClient() {
 
   const set = <K extends keyof ScreenerFilters>(k: K, v: ScreenerFilters[K]) =>
     setFilters((f) => ({ ...f, [k]: v }));
+
+  const reset = () => {
+    const defaults: ScreenerFilters = {
+      sort_by: "days_since_announcement",
+      sort_desc: false,
+      limit: 50,
+    };
+    setFilters(defaults);
+    run(defaults);
+  };
 
   return (
     <div className="space-y-6">
@@ -171,21 +189,16 @@ export default function ScreenerClient() {
 
       <div className="flex items-center gap-3">
         <button
-          onClick={run}
+          onClick={() => run()}
           disabled={busy}
           className="px-4 py-2 bg-accent/90 hover:bg-accent text-bg font-medium rounded text-sm disabled:opacity-50"
         >
           {busy ? "running…" : "Run screener"}
         </button>
         <button
-          onClick={() => {
-            setFilters({
-              sort_by: "days_since_announcement",
-              sort_desc: false,
-              limit: 50,
-            });
-          }}
-          className="px-3 py-2 border border-border rounded text-sm hover:bg-panel"
+          onClick={reset}
+          disabled={busy}
+          className="px-3 py-2 border border-border rounded text-sm hover:bg-panel disabled:opacity-50"
         >
           Reset
         </button>

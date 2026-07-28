@@ -57,17 +57,19 @@ _SQL = text(
     """
     WITH latest_price AS (
         SELECT DISTINCT ON (stock_id)
-            stock_id, trade_date AS latest_trade_date, close AS latest_close
+            stock_id, trade_date AS latest_trade_date,
+            close AS latest_close,
+            COALESCE(adj_close, close) AS latest_adj
         FROM prices
         ORDER BY stock_id, trade_date DESC
     ),
     ranked_prices AS (
-        SELECT stock_id, close,
+        SELECT stock_id, COALESCE(adj_close, close) AS adj,
                ROW_NUMBER() OVER (PARTITION BY stock_id ORDER BY trade_date DESC) AS rn
         FROM prices
     ),
     prior_price AS (
-        SELECT stock_id, close AS close_21d_ago
+        SELECT stock_id, adj AS adj_21d_ago
         FROM ranked_prices
         WHERE rn = 21
     ),
@@ -87,7 +89,8 @@ _SQL = text(
     SELECT
         s.symbol, s.name, s.sector, s.is_fno,
         lp.latest_close, lp.latest_trade_date,
-        pp.close_21d_ago,
+        lp.latest_adj,
+        pp.adj_21d_ago,
         le.id           AS last_event_id,
         le.fiscal_period AS last_fiscal_period,
         le.announcement_date AS last_announcement_date,
@@ -135,10 +138,13 @@ def screen(
     rows: list[ScreenRow] = []
     for r in raw:
         latest_close = _to_float(r.latest_close)
-        prior_close = _to_float(r.close_21d_ago)
+        # Drift is split-adjusted (adj_close) so a split inside the 21-session
+        # window doesn't fake a huge move; latest_close stays raw for display.
+        latest_adj = _to_float(r.latest_adj)
+        prior_adj = _to_float(r.adj_21d_ago)
         drift = None
-        if latest_close is not None and prior_close and prior_close != 0:
-            drift = round((latest_close / prior_close - 1.0) * 100.0, 3)
+        if latest_adj is not None and prior_adj and prior_adj != 0:
+            drift = round((latest_adj / prior_adj - 1.0) * 100.0, 3)
 
         days_since = None
         if r.last_announcement_date is not None:

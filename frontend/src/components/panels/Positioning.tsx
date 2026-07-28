@@ -80,8 +80,8 @@ export function Positioning({ data }: { data: PositioningData }) {
               a demat account), as a fraction of the day's total traded volume. Rest is
               intraday churn.
               <br />
-              Value here is 30-day average minus 90-day baseline, in percentage points.
-              Rising = accumulation; falling = churn.
+              Value here is the last 20 trading sessions' average minus the 60 sessions
+              before that, in percentage points. Rising = accumulation; falling = churn.
             </>
           }
           value={fmtPp(data.delivery_pct_delta)}

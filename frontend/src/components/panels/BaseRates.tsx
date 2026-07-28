@@ -36,6 +36,45 @@ function toChart(d: Distribution) {
   });
 }
 
+/** English ordinal suffix: 1→"1st", 2→"2nd", 3→"3rd", 21→"21st", 11→"11th". */
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
+/**
+ * Fraction of past events at or below `value`, as a 0–100 percentile, estimated
+ * from the histogram (linear interpolation within the straddling bin). This is a
+ * true rank percentile — "how the outcome ranked vs history" — not a position in
+ * the min–max range.
+ */
+function cumulativePercentile(d: Distribution, value: number): number | null {
+  const total = d.hist_counts.reduce((a, b) => a + b, 0);
+  if (total === 0) return null;
+  let below = 0;
+  for (let i = 0; i < d.hist_counts.length; i++) {
+    const lo = d.hist_bin_edges[i];
+    const hi = d.hist_bin_edges[i + 1];
+    const c = d.hist_counts[i];
+    if (hi <= value) {
+      below += c;
+    } else if (lo < value && value < hi) {
+      below += (c * (value - lo)) / (hi - lo);
+    }
+  }
+  return Math.round((below / total) * 100);
+}
+
 /**
  * Closest histogram bin label for a value — used to position a ReferenceLine
  * on a Recharts BarChart with categorical XAxis.
@@ -60,9 +99,7 @@ function StatRow({ d, marker }: { d: Distribution; marker: number | null }) {
   const label = METRIC_LABELS[d.metric] ?? d.metric;
   const markerLabel = marker != null && d.n > 0 ? nearestBinLabel(d, marker) : null;
   const markerPercentile =
-    marker != null && d.n > 0 && d.min != null && d.max != null && d.max > d.min
-      ? Math.round(((marker - d.min) / (d.max - d.min)) * 100)
-      : null;
+    marker != null && d.n > 0 ? cumulativePercentile(d, marker) : null;
   return (
     <div className="border border-border rounded-md bg-panel">
       <div className="flex items-baseline justify-between px-3 py-2 border-b border-border">
@@ -126,7 +163,11 @@ function StatRow({ d, marker }: { d: Distribution; marker: number | null }) {
           {marker != null && markerPercentile != null && (
             <div className="px-3 py-2 border-t border-border text-[11px] text-muted font-mono">
               last event: {marker > 0 ? "+" : ""}
-              {marker.toFixed(2)}% · sits at ~{markerPercentile}th percentile of history
+              {marker.toFixed(2)}% · {markerPercentile === 0
+                ? "lowest in history"
+                : markerPercentile === 100
+                  ? "highest in history"
+                  : `${ordinal(markerPercentile)} percentile — ${markerPercentile}% of past events were lower`}
             </div>
           )}
         </>
