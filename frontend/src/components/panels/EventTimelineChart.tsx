@@ -82,8 +82,14 @@ export function EventTimelineChart({
       </div>
 
       <div className="text-xs text-muted font-mono">
-        {selected.fiscal_period} · announced {selected.announcement_date} · pre-close ₹
+        {selected.fiscal_period} · announced {selected.announcement_date} · pre-event close ₹
         {selected.pre_close.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+      </div>
+      <div className="text-[11px] text-muted leading-snug">
+        Y-axis = % change from the price the day before results.
+        X-axis = trading days from the result day (labelled <span className="text-text">R</span>).
+        A rising line to the right = the market kept liking the print after the initial reaction;
+        a falling line = the initial reaction faded.
       </div>
 
       <div className="h-64">

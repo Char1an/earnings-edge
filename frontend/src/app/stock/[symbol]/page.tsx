@@ -47,10 +47,11 @@ export default async function StockPage({ params }: Props) {
       />
 
       <section>
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-lg font-medium">Positioning (30d)</h2>
+        <div className="mb-3">
+          <h2 className="text-lg font-medium">Positioning (last 30 days)</h2>
           <div className="text-xs text-muted">
-            FII/DII shown are market-wide, not stock-specific
+            What the tape has been doing recently — big single trades in this stock, plus the
+            broader institutional cash-flow backdrop across the whole market.
           </div>
         </div>
         {positioning ? (
@@ -63,22 +64,25 @@ export default async function StockPage({ params }: Props) {
       </section>
 
       <section>
-        <div className="flex items-baseline justify-between mb-3">
+        <div className="mb-3">
           <h2 className="text-lg font-medium">Earnings history &amp; timeline ({history.length})</h2>
           <div className="text-xs text-muted">
-            hover any row to preview its price path · click to pin
+            Each past quarterly result: the numbers reported and how the stock moved around it.
+            Hover any row to preview its price path in the chart below; click to pin.
           </div>
         </div>
         <EarningsView items={history} timelines={timelines} />
       </section>
 
       <section>
-        <div className="flex items-baseline justify-between mb-3">
+        <div className="mb-3">
           <h2 className="text-lg font-medium">
-            Base rates {rates ? `(${rates.n_events} events)` : ""}
+            Base rates {rates ? `(${rates.n_events} past events)` : ""}
           </h2>
           <div className="text-xs text-muted">
-            distribution of past reactions · orange line = last event's outcome
+            The <em>distribution</em> of past reactions — not a prediction. Each histogram
+            shows how often the stock landed in each % range after past results. The orange
+            vertical marks where the most recent event's outcome sat.
           </div>
         </div>
         {rates ? (
@@ -91,10 +95,12 @@ export default async function StockPage({ params }: Props) {
       </section>
 
       <section>
-        <div className="flex items-baseline justify-between mb-3">
+        <div className="mb-3">
           <h2 className="text-lg font-medium">Similar past setups</h2>
           <div className="text-xs text-muted">
-            cosine similarity on standardized features · anchored on the latest event
+            The 5 past quarterly results whose growth &amp; drift signature most closely
+            resembles the most recent one — and what actually happened afterwards. Analogues,
+            not forecasts.
           </div>
         </div>
         {patterns ? (

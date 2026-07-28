@@ -1,3 +1,4 @@
+import { Info } from "@/components/Info";
 import type {
   BaseRatesResponse,
   EarningsHistoryItem,
@@ -17,11 +18,13 @@ function pctSign(v: number | null | undefined) {
 
 function KpiTile({
   label,
+  info,
   value,
   sub,
   tone,
 }: {
   label: string;
+  info?: React.ReactNode;
   value: string;
   sub?: string;
   tone?: "pos" | "neg" | "neutral";
@@ -30,17 +33,16 @@ function KpiTile({
     tone === "pos" ? "text-accent" : tone === "neg" ? "text-neg" : "text-text";
   return (
     <div className="flex-1 min-w-[8rem] border border-border rounded-md bg-bg px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-muted flex items-center">
+        {label}
+        {info && <Info>{info}</Info>}
+      </div>
       <div className={`text-lg font-mono ${toneClass}`}>{value}</div>
       {sub && <div className="text-[10px] text-muted mt-0.5">{sub}</div>}
     </div>
   );
 }
 
-/**
- * Compute a short, opinion-free headline from the numbers. Deliberately hedged
- * language — "usually goes green" not "is bullish."
- */
 function headline(
   stock: StockDetail,
   history: EarningsHistoryItem[],
@@ -55,17 +57,19 @@ function headline(
   if (d5s.length >= 4) {
     const greens = d5s.filter((v) => v > 0).length;
     const total = d5s.length;
-    parts.push(`${greens}/${total} past prints closed green day-5`);
+    parts.push(
+      `${greens}/${total} past quarterly results ended above pre-event price 5 trading days later`,
+    );
   }
   const median = rates?.distributions?.day5_close_pct?.median;
   if (median != null && Math.abs(median) > 0.3) {
-    parts.push(`median day-5 ${median > 0 ? "+" : ""}${median.toFixed(1)}%`);
+    parts.push(`median 5-day move ${median > 0 ? "+" : ""}${median.toFixed(1)}%`);
   }
 
   const drift = positioning?.delivery_pct_delta;
   if (drift != null && Math.abs(drift) > 1) {
     parts.push(
-      `delivery ${drift > 0 ? "running" : "fading"} ${drift > 0 ? "+" : ""}${drift.toFixed(1)}pt vs baseline`,
+      `delivery-% ${drift > 0 ? "running" : "fading"} ${drift > 0 ? "+" : ""}${drift.toFixed(1)}pt vs 90-day baseline`,
     );
   }
 
@@ -90,14 +94,9 @@ export function StockHero({
   const total = d5s.length;
   const greenRate = total ? greens / total : null;
   const medianD5 = rates?.distributions?.day5_close_pct?.median ?? null;
-
-  // 20-day drift for the current tape: use the pattern-match anchor's drift
-  // if we've got it, else fall back to the latest historical event's
-  // "pre-event drift" (approximated from the most recent event's day-5? no —
-  // we don't have current-live drift on this page. Use delivery delta as the
-  // freshest positioning signal instead).
   const deliveryDelta = positioning?.delivery_pct_delta ?? null;
   const latestReaction = history[0]?.reaction ?? null;
+  const latestPeriod = history[0]?.event?.fiscal_period ?? null;
 
   return (
     <div className="border border-border rounded-md bg-panel p-4 space-y-3">
@@ -125,24 +124,44 @@ export function StockHero({
 
       <div className="flex flex-wrap gap-2">
         <KpiTile
-          label="Green day-5"
+          label="Green after 5 days"
+          info={
+            <>
+              How often the stock closed <em>above</em> its pre-result price 5 trading days
+              after the quarterly earnings announcement, across past events. A quick base
+              rate — not a prediction.
+            </>
+          }
           value={total ? `${greens} / ${total}` : "—"}
           sub={greenRate != null ? `${Math.round(greenRate * 100)}% hit rate` : "insufficient history"}
           tone={greenRate == null ? "neutral" : greenRate >= 0.6 ? "pos" : greenRate <= 0.4 ? "neg" : "neutral"}
         />
         <KpiTile
-          label="Median day-5"
+          label="Median 5-day move"
+          info={
+            <>
+              Middle of the distribution of 5-day post-result moves across past events.
+              Half the time the stock did better, half the time worse.
+            </>
+          }
           value={medianD5 != null ? `${medianD5 > 0 ? "+" : ""}${medianD5.toFixed(2)}%` : "—"}
           tone={medianD5 == null ? "neutral" : medianD5 > 0.5 ? "pos" : medianD5 < -0.5 ? "neg" : "neutral"}
         />
         <KpiTile
-          label="Last event day-5"
+          label="Last result: 5-day move"
+          info={
+            <>
+              How the stock actually moved 5 trading days after its most recent quarterly
+              result. Useful as a "was it a normal outcome" reference — compare with the
+              median and the histograms below.
+            </>
+          }
           value={
             latestReaction?.day5_close_pct != null
               ? `${latestReaction.day5_close_pct > 0 ? "+" : ""}${latestReaction.day5_close_pct.toFixed(2)}%`
               : "—"
           }
-          sub={history[0]?.event?.fiscal_period}
+          sub={latestPeriod ?? undefined}
           tone={
             latestReaction?.day5_close_pct == null
               ? "neutral"
@@ -155,12 +174,22 @@ export function StockHero({
         />
         <KpiTile
           label="Delivery vs baseline"
+          info={
+            <>
+              <b>Delivery %</b> = shares actually taken delivery of (settled to demat) as a
+              share of the day's traded volume. High delivery = genuine buying/holding;
+              low = day-trading churn.
+              <br />
+              This tile shows recent 30-day average minus 90-day baseline, in percentage
+              points. Positive = accumulation trend; negative = churn.
+            </>
+          }
           value={
             deliveryDelta != null
               ? `${deliveryDelta > 0 ? "+" : ""}${deliveryDelta.toFixed(1)}pt`
               : "—"
           }
-          sub="30d recent vs 90d baseline"
+          sub="30d avg vs 90d baseline"
           tone={
             deliveryDelta == null
               ? "neutral"

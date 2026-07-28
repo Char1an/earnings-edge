@@ -1,4 +1,5 @@
 import { EventSparkline } from "@/components/EventSparkline";
+import { Info } from "@/components/Info";
 import type { EventTimeline, PatternsResponse } from "@/lib/types";
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -45,8 +46,13 @@ export function PatternMatch({
   return (
     <div className="space-y-3">
       <div className="border border-border rounded-md bg-panel p-3">
-        <div className="text-xs text-muted uppercase tracking-wide mb-2">
-          Anchor setup (most recent event)
+        <div className="text-xs text-muted uppercase tracking-wide mb-2 inline-flex items-center">
+          This quarter's setup (most recent event)
+          <Info>
+            The growth and price-drift numbers going into the most recent result. The
+            table below finds the 5 past events whose setup most closely resembles this
+            one, and shows what actually happened afterwards.
+          </Info>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 font-mono text-sm">
           {featureKeys.map((k) => (
@@ -66,14 +72,30 @@ export function PatternMatch({
         <table className="w-full text-sm font-mono">
           <thead className="text-xs text-muted">
             <tr className="border-b border-border">
-              <th className="text-left px-3 py-2">Sim</th>
+              <th className="text-left px-3 py-2">
+                <span className="inline-flex items-center">
+                  Match
+                  <Info>
+                    Similarity score from 0 (nothing in common) to 1 (identical growth
+                    signature). Rows sorted best match first.
+                  </Info>
+                </span>
+              </th>
               <th className="text-left px-3 py-2">Quarter</th>
               <th className="text-right px-3 py-2">Announced</th>
               <th className="text-right px-3 py-2">YoY PAT</th>
-              <th className="text-right px-3 py-2">Drift 20d</th>
-              <th className="text-right px-3 py-2">Gap</th>
-              <th className="text-right px-3 py-2">Day1</th>
-              <th className="text-right px-3 py-2">Day5</th>
+              <th className="text-right px-3 py-2">
+                <span className="inline-flex items-center">
+                  Drift 20d
+                  <Info>
+                    Stock's % return over the 20 trading days leading into the result —
+                    i.e., how the tape was leaning heading in.
+                  </Info>
+                </span>
+              </th>
+              <th className="text-right px-3 py-2">Gap %</th>
+              <th className="text-right px-3 py-2">1-day %</th>
+              <th className="text-right px-3 py-2">5-day %</th>
               <th className="text-right px-3 py-2">Path (±10d)</th>
             </tr>
           </thead>

@@ -2,13 +2,25 @@
 
 import { Bar, BarChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
+import { Info } from "@/components/Info";
 import type { BaseRatesResponse, Distribution } from "@/lib/types";
 
 const METRIC_LABELS: Record<string, string> = {
   gap_open_pct: "Gap open",
-  day1_close_pct: "Day 1 close",
-  day3_close_pct: "Day 3 close",
-  day5_close_pct: "Day 5 close",
+  day1_close_pct: "1-day close",
+  day3_close_pct: "3-day close",
+  day5_close_pct: "5-day close",
+};
+
+const METRIC_TIPS: Record<string, string> = {
+  gap_open_pct:
+    "How the stock opened on the result day vs the previous close, in %. Each bar counts past events that fell into that range.",
+  day1_close_pct:
+    "Close on the result day vs pre-event close. Each bar counts past events in that % range.",
+  day3_close_pct:
+    "Close 3 trading days after the result vs pre-event close.",
+  day5_close_pct:
+    "Close 5 trading days after the result vs pre-event close.",
 };
 
 function toChart(d: Distribution) {
@@ -54,8 +66,14 @@ function StatRow({ d, marker }: { d: Distribution; marker: number | null }) {
   return (
     <div className="border border-border rounded-md bg-panel">
       <div className="flex items-baseline justify-between px-3 py-2 border-b border-border">
-        <div className="text-sm font-medium">{label}</div>
-        <div className="text-xs text-muted font-mono">n = {d.n}</div>
+        <div className="text-sm font-medium inline-flex items-center">
+          {label}
+          <Info>{METRIC_TIPS[d.metric] ?? ""}</Info>
+        </div>
+        <div className="text-xs text-muted font-mono inline-flex items-center">
+          n = {d.n}
+          <Info side="left">Number of past events with a computed reaction.</Info>
+        </div>
       </div>
       {d.n === 0 ? (
         <div className="px-3 py-6 text-xs text-muted">insufficient history</div>

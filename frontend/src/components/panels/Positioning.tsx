@@ -1,3 +1,4 @@
+import { Info } from "@/components/Info";
 import type { Positioning as PositioningData } from "@/lib/types";
 
 const fmtCr = (v: number | null | undefined) => {
@@ -11,11 +12,13 @@ const fmtPp = (v: number | null | undefined) =>
 
 function Tile({
   label,
+  info,
   value,
   sub,
   tone,
 }: {
   label: string;
+  info?: React.ReactNode;
   value: string;
   sub?: string;
   tone?: "pos" | "neg" | "muted";
@@ -30,7 +33,10 @@ function Tile({
           : "text-text";
   return (
     <div className="border border-border rounded-md bg-panel p-3">
-      <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted flex items-center">
+        {label}
+        {info && <Info>{info}</Info>}
+      </div>
       <div className={`font-mono text-lg ${color}`}>{value}</div>
       {sub && <div className="text-xs text-muted mt-1">{sub}</div>}
     </div>
@@ -53,13 +59,31 @@ export function Positioning({ data }: { data: PositioningData }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Tile
-          label={`Bulk+Block net (${data.window_days}d)`}
+          label={`Big-trade net (${data.window_days}d)`}
+          info={
+            <>
+              Net value of <b>bulk</b> and <b>block</b> deals in this stock over the last
+              {" "}{data.window_days} days. Bulk = a single trade above 0.5% of listed
+              shares; block = a pre-negotiated trade above ₹5 Cr, reported to the
+              exchange. Positive = more/larger buys than sells.
+            </>
+          }
           value={fmtCr(data.deals_net_value_cr)}
           sub={`${data.deals_buy_count} buys · ${data.deals_sell_count} sells`}
           tone={dealTone}
         />
         <Tile
           label="Delivery % trend"
+          info={
+            <>
+              <b>Delivery %</b> = shares that were actually taken delivery of (settled to
+              a demat account), as a fraction of the day's total traded volume. Rest is
+              intraday churn.
+              <br />
+              Value here is 30-day average minus 90-day baseline, in percentage points.
+              Rising = accumulation; falling = churn.
+            </>
+          }
           value={fmtPp(data.delivery_pct_delta)}
           sub={
             data.delivery_pct_recent != null && data.delivery_pct_baseline != null
@@ -70,12 +94,28 @@ export function Positioning({ data }: { data: PositioningData }) {
         />
         <Tile
           label={`FII cash (market, ${data.window_days}d)`}
+          info={
+            <>
+              <b>FII</b> = Foreign Institutional Investors. Net cash flow across the
+              <em> whole Indian equity market</em>, not this stock specifically —
+              per-stock FII data isn't public on free feeds. Read as macro backdrop.
+              <br />
+              Positive = FIIs net buyers; negative = net sellers.
+            </>
+          }
           value={fmtCr(data.fii_net_window_cr)}
           sub="market-wide, not stock-specific"
           tone={fiiTone}
         />
         <Tile
           label={`DII cash (market, ${data.window_days}d)`}
+          info={
+            <>
+              <b>DII</b> = Domestic Institutional Investors (mutual funds, insurance,
+              banks). Same market-wide caveat as FII. Often moves in the opposite
+              direction to FII — when FIIs sell, DIIs frequently absorb it.
+            </>
+          }
           value={fmtCr(data.dii_net_window_cr)}
           sub="market-wide, not stock-specific"
           tone={
@@ -89,8 +129,13 @@ export function Positioning({ data }: { data: PositioningData }) {
       </div>
 
       <div>
-        <div className="text-xs text-muted mb-2 uppercase tracking-wide">
+        <div className="text-xs text-muted mb-2 uppercase tracking-wide flex items-center">
           Recent bulk &amp; block deals
+          <Info>
+            Individual reported large trades in this stock (bulk ≥0.5% of listed shares,
+            block ≥₹5 Cr pre-negotiated). Empty = no notable single trades in the window,
+            which is common for many stocks. Watch for named institutional buyers/sellers.
+          </Info>
         </div>
         {data.recent_deals.length === 0 ? (
           <div className="text-sm text-muted p-4 border border-border rounded-md bg-panel">

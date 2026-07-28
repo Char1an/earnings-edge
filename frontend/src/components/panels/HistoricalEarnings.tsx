@@ -1,6 +1,7 @@
 "use client";
 
 import { EventSparkline } from "@/components/EventSparkline";
+import { Info } from "@/components/Info";
 import type { EarningsHistoryItem, EventTimeline } from "@/lib/types";
 
 const fmtPct = (v: number | null | undefined) =>
@@ -47,17 +48,96 @@ export function HistoricalEarnings({
       <table className="w-full text-sm font-mono">
         <thead className="text-xs text-muted">
           <tr className="border-b border-border">
-            <th className="text-left px-3 py-2">Quarter</th>
+            <th className="text-left px-3 py-2">
+              <span className="inline-flex items-center">
+                Quarter
+                <Info>
+                  Indian fiscal-year quarter. Q1 = Apr–Jun, Q2 = Jul–Sep, Q3 = Oct–Dec,
+                  Q4 = Jan–Mar. "Q1FY27" means Apr–Jun 2026 (FY27 = the year ending Mar
+                  2027).
+                </Info>
+              </span>
+            </th>
             <th className="text-right px-3 py-2">Announced</th>
-            <th className="text-right px-3 py-2">Rev (Cr)</th>
-            <th className="text-right px-3 py-2">PAT (Cr)</th>
-            <th className="text-right px-3 py-2">YoY PAT</th>
-            <th className="text-right px-3 py-2">Gap</th>
-            <th className="text-right px-3 py-2">Day1</th>
-            <th className="text-right px-3 py-2">Day5</th>
-            <th className="text-right px-3 py-2">Vol×</th>
-            <th className="text-right px-3 py-2">Conf</th>
-            <th className="text-right px-3 py-2">Path (±10d)</th>
+            <th className="text-right px-3 py-2">
+              <span className="inline-flex items-center">
+                Rev (Cr)
+                <Info>Revenue for the quarter in ₹ Crore (1 Cr = ₹10,000,000).</Info>
+              </span>
+            </th>
+            <th className="text-right px-3 py-2">
+              <span className="inline-flex items-center">
+                PAT (Cr)
+                <Info>Profit After Tax for the quarter, in ₹ Crore.</Info>
+              </span>
+            </th>
+            <th className="text-right px-3 py-2">
+              <span className="inline-flex items-center">
+                YoY PAT
+                <Info>
+                  Profit growth vs the same quarter in the previous fiscal year.
+                  Positive = higher profit than a year ago.
+                </Info>
+              </span>
+            </th>
+            <th className="text-right px-3 py-2">
+              <span className="inline-flex items-center">
+                Gap %
+                <Info>
+                  How the stock opened on the result day vs the previous trading day's
+                  close, in %. A positive gap = opened above pre-event close.
+                </Info>
+              </span>
+            </th>
+            <th className="text-right px-3 py-2">
+              <span className="inline-flex items-center">
+                1-day %
+                <Info>
+                  Close on the result day vs pre-event close. This is the same-day
+                  reaction the market delivered.
+                </Info>
+              </span>
+            </th>
+            <th className="text-right px-3 py-2">
+              <span className="inline-flex items-center">
+                5-day %
+                <Info>
+                  Close 5 trading days after the result vs pre-event close. Captures the
+                  post-result drift, not just the same-day pop.
+                </Info>
+              </span>
+            </th>
+            <th className="text-right px-3 py-2">
+              <span className="inline-flex items-center">
+                Vol ×
+                <Info>
+                  Volume on the result day divided by the 20-session average volume.
+                  2.0 = twice normal. Big prints usually spike above 1.5.
+                </Info>
+              </span>
+            </th>
+            <th className="text-right px-3 py-2">
+              <span className="inline-flex items-center">
+                Conf
+                <Info>
+                  Detection confidence — how much the price + volume signature on the
+                  detected day stood out from the surrounding weeks. Higher = more
+                  likely a real result day. Low confidence (&lt; 3) should be treated as
+                  noisy.
+                </Info>
+              </span>
+            </th>
+            <th className="text-right px-3 py-2">
+              <span className="inline-flex items-center">
+                Path (±10d)
+                <Info side="left">
+                  Mini price chart from 10 trading days before to 10 after the result.
+                  Dashed horizontal = pre-event close (0%). Dashed vertical = result
+                  day. Line coloured green if it ended above pre-event close, red if
+                  below.
+                </Info>
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>
