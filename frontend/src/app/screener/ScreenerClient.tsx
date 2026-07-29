@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { api } from "@/lib/api";
+import { signedPct as fmtPct } from "@/lib/format";
 import type { ScreenerFilters, ScreenerResponse, ScreenerRow } from "@/lib/types";
 
 const SORT_OPTIONS = [
@@ -17,10 +18,6 @@ const SORT_OPTIONS = [
   { v: "symbol", l: "Symbol" },
 ];
 
-const fmtPct = (v: number | null | undefined) => {
-  if (v == null) return "—";
-  return `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
-};
 const fmtInt = (v: number | null | undefined) =>
   v == null ? "—" : v.toLocaleString("en-IN");
 const fmtRs = (v: number | null | undefined) =>

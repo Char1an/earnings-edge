@@ -1,4 +1,5 @@
 import { Info } from "@/components/Info";
+import { signedPct } from "@/lib/format";
 import type {
   BaseRatesResponse,
   EarningsHistoryItem,
@@ -155,7 +156,7 @@ export function StockHero({
               Half the time the stock did better, half the time worse.
             </>
           }
-          value={medianD5 != null ? `${medianD5 > 0 ? "+" : ""}${medianD5.toFixed(2)}%` : "—"}
+          value={signedPct(medianD5)}
           tone={medianD5 == null ? "neutral" : medianD5 > 0.5 ? "pos" : medianD5 < -0.5 ? "neg" : "neutral"}
         />
         <KpiTile
@@ -167,11 +168,7 @@ export function StockHero({
               median and the histograms below.
             </>
           }
-          value={
-            latestReaction?.day5_close_pct != null
-              ? `${latestReaction.day5_close_pct > 0 ? "+" : ""}${latestReaction.day5_close_pct.toFixed(2)}%`
-              : "—"
-          }
+          value={signedPct(latestReaction?.day5_close_pct)}
           sub={latestPeriod ?? undefined}
           tone={
             latestReaction?.day5_close_pct == null

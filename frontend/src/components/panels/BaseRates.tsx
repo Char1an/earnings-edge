@@ -3,6 +3,7 @@
 import { Bar, BarChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { Info } from "@/components/Info";
+import { signedPct } from "@/lib/format";
 import type { BaseRatesResponse, Distribution } from "@/lib/types";
 
 const METRIC_LABELS: Record<string, string> = {
@@ -165,8 +166,7 @@ function StatRow({ d, marker }: { d: Distribution; marker: number | null }) {
           </div>
           {marker != null && markerPercentile != null && (
             <div className="px-3 py-2 border-t border-border text-[11px] text-muted font-mono">
-              last event: {marker > 0 ? "+" : ""}
-              {marker.toFixed(2)}% · {markerPercentile === 0
+              last event: {signedPct(marker)} · {markerPercentile === 0
                 ? "lowest in history"
                 : markerPercentile === 100
                   ? "highest in history"
@@ -183,7 +183,7 @@ function Stat({ k, v, pct }: { k: string; v: number | null; pct?: boolean }) {
   return (
     <div>
       <div className="text-muted uppercase tracking-wide text-[10px]">{k}</div>
-      <div>{v == null ? "—" : `${v > 0 && pct ? "+" : ""}${v.toFixed(2)}${pct ? "%" : ""}`}</div>
+      <div>{v == null ? "—" : pct ? signedPct(v) : v.toFixed(2)}</div>
     </div>
   );
 }

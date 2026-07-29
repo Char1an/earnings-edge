@@ -2,10 +2,9 @@
 
 import { EventSparkline } from "@/components/EventSparkline";
 import { Info } from "@/components/Info";
+import { signedPct as fmtPct } from "@/lib/format";
 import type { EarningsHistoryItem, EventTimeline } from "@/lib/types";
 
-const fmtPct = (v: number | null | undefined) =>
-  v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
 const fmtCr = (v: number | null | undefined) =>
   v == null ? "—" : v >= 1000 ? `₹${(v / 1000).toFixed(2)}k Cr` : `₹${v.toFixed(0)} Cr`;
 const fmtNum = (v: number | null | undefined) =>

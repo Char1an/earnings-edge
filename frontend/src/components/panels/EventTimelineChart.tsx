@@ -12,6 +12,7 @@ import {
   YAxis,
 } from "recharts";
 
+import { signedPct } from "@/lib/format";
 import type { EventTimeline } from "@/lib/types";
 
 /**
@@ -129,7 +130,7 @@ export function EventTimelineChart({
                 return p ? `${p.date} (day ${offset > 0 ? `+${offset}` : offset})` : String(offset);
               }}
               formatter={(v: number, _name, item) => [
-                `${v > 0 ? "+" : ""}${v.toFixed(2)}% · ₹${item.payload.close.toLocaleString("en-IN")}`,
+                `${signedPct(v)} · ₹${item.payload.close.toLocaleString("en-IN")}`,
                 "vs pre-close",
               ]}
             />

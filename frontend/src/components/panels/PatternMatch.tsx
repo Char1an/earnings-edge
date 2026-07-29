@@ -1,5 +1,6 @@
 import { EventSparkline } from "@/components/EventSparkline";
 import { Info } from "@/components/Info";
+import { signedPct as fmtPct } from "@/lib/format";
 import type { EventTimeline, PatternsResponse } from "@/lib/types";
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -10,10 +11,6 @@ const FEATURE_LABELS: Record<string, string> = {
   drift_20d: "20d drift",
 };
 
-const fmtPct = (v: number | null | undefined) => {
-  if (v == null || Number.isNaN(v)) return "—";
-  return `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
-};
 const fmtSim = (v: number) => v.toFixed(3);
 
 function pctClass(v: number | null | undefined) {
