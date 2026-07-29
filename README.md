@@ -87,7 +87,7 @@ frontend/
   src/components/     panels + shared UI
   src/lib/            typed API client
 notebooks/
-  06_case_study.ipynb    walkthrough of one earnings event with all four signals
+  06_case_study.ipynb    two worked earnings events (TCS Q1FY27 + PCBL Q4FY26) — history, base rates, positioning, pattern match, verdict
 .github/workflows/nightly-ingest.yml    cron 15:30 UTC Mon-Fri
 ```
 
