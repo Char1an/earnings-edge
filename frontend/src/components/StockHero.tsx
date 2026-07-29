@@ -98,6 +98,17 @@ export function StockHero({
   const latestReaction = history[0]?.reaction ?? null;
   const latestPeriod = history[0]?.event?.fiscal_period ?? null;
 
+  // Detect stale scraped data: a quarterly reporter's most recent quarter_end
+  // should never be much more than ~4 months old. If it's over ~10 months old,
+  // the Screener scrape almost certainly matched the wrong / an outdated page
+  // (affects a handful of stocks like TATAELXSI, TTML, BAYERCROP).
+  const latestQuarterEnd = history[0]?.event?.quarter_end ?? null;
+  let staleAsOf: string | null = null;
+  if (latestQuarterEnd) {
+    const ageDays = (Date.now() - new Date(latestQuarterEnd).getTime()) / 86_400_000;
+    if (ageDays > 300) staleAsOf = latestQuarterEnd;
+  }
+
   return (
     <div className="border border-border rounded-md bg-panel p-4 space-y-3">
       <div className="flex items-baseline justify-between flex-wrap gap-3">
@@ -203,9 +214,17 @@ export function StockHero({
         />
       </div>
 
-      <div className={`text-sm ${pctSign(medianD5)}`}>
-        {headline(stock, history, rates, positioning)}
-      </div>
+      {staleAsOf ? (
+        <div className="text-xs text-neg border border-neg/40 bg-neg/10 rounded px-3 py-2">
+          ⚠ Earnings data looks stale — the most recent quarter on file ended{" "}
+          <span className="font-mono">{staleAsOf}</span>. This stock's data likely didn't
+          map correctly during ingest; the numbers below are historical, not current.
+        </div>
+      ) : (
+        <div className={`text-sm ${pctSign(medianD5)}`}>
+          {headline(stock, history, rates, positioning)}
+        </div>
+      )}
     </div>
   );
 }

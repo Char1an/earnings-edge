@@ -83,7 +83,10 @@ function nearestBinLabel(d: Distribution, value: number): string | null {
   if (d.hist_bin_edges.length === 0) return null;
   let bestIdx = 0;
   let bestDist = Infinity;
-  for (let i = 0; i < d.hist_bin_edges.length; i++) {
+  // Only bar-label edges (one per bar) are valid ReferenceLine categories; the
+  // final edge has no bar, so searching it could target a non-existent category
+  // and the marker would silently not render for values near the max.
+  for (let i = 0; i < d.hist_counts.length; i++) {
     const dist = Math.abs(d.hist_bin_edges[i] - value);
     if (dist < bestDist) {
       bestDist = dist;
