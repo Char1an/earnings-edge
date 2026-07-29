@@ -12,6 +12,7 @@ const fmtCr = (v: number | null | undefined) => {
 
 export default async function HomePage() {
   const home = await api.home().catch(() => null);
+  const flowCount = home?.fii_dii_series?.length ?? 0;
 
   return (
     <div className="space-y-10 py-4">
@@ -46,8 +47,13 @@ export default async function HomePage() {
 
       <section>
         <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-lg font-medium">FII / DII cash flow (30d)</h2>
-          <div className="text-xs text-muted">market-wide net buying (₹ Cr)</div>
+          <h2 className="text-lg font-medium">
+            FII / DII cash flow{flowCount >= 20 ? " (30d)" : ` · last ${flowCount} session${flowCount === 1 ? "" : "s"}`}
+          </h2>
+          <div className="text-xs text-muted">
+            market-wide net buying (₹ Cr)
+            {flowCount > 0 && flowCount < 20 ? " · still accumulating" : ""}
+          </div>
         </div>
         <FlowsChart points={home?.fii_dii_series ?? []} />
       </section>
