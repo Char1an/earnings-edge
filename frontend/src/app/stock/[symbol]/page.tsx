@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { ReadingCard } from "@/components/ReadingCard";
 import { StockHero } from "@/components/StockHero";
 import { BaseRates } from "@/components/panels/BaseRates";
 import { EarningsView } from "@/components/panels/EarningsView";
@@ -46,6 +47,13 @@ export default async function StockPage({ params }: Props) {
         positioning={positioning}
       />
 
+      <ReadingCard
+        stock={stock}
+        history={history}
+        rates={rates}
+        positioning={positioning}
+      />
+
       <section>
         <div className="mb-3">
           <h2 className="text-lg font-medium">Positioning (last 30 days)</h2>
@@ -55,7 +63,7 @@ export default async function StockPage({ params }: Props) {
           </div>
         </div>
         {positioning ? (
-          <Positioning data={positioning} />
+          <Positioning data={positioning} symbol={stock.symbol} />
         ) : (
           <div className="text-sm text-muted p-4 border border-border rounded-md bg-panel">
             positioning unavailable — deals / FII-DII / delivery ingests haven't run yet
