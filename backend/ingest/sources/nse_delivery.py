@@ -83,6 +83,76 @@ def _apply(df: pd.DataFrame) -> int:
     return updated
 
 
+def _apply_bulk(df: pd.DataFrame) -> int:
+    """Fast single-statement delivery update for one day via unnest join."""
+    if df.empty:
+        return 0
+    syms = df["symbol"].tolist()
+    qtys = [int(x) for x in df["delivery_qty"].tolist()]
+    pcts = [float(x) for x in df["delivery_pct"].tolist()]
+    d = df["trade_date"].iloc[0]
+    session = SessionLocal()
+    try:
+        res = session.execute(
+            text(
+                """
+                UPDATE prices p
+                   SET delivery_qty = v.qty, delivery_pct = v.pct
+                  FROM (
+                    SELECT unnest(CAST(:syms AS text[])) AS symbol,
+                           unnest(CAST(:qtys AS bigint[])) AS qty,
+                           unnest(CAST(:pcts AS numeric[])) AS pct
+                  ) v
+                  JOIN stocks s ON s.symbol = v.symbol
+                 WHERE p.stock_id = s.id AND p.trade_date = :d
+                """
+            ),
+            {"syms": syms, "qtys": qtys, "pcts": pcts, "d": d},
+        )
+        session.commit()
+        return res.rowcount or 0
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def backfill_delivery(lookback_trading_days: int = 40) -> int:
+    """Backfill delivery % for the most recent N trading dates that already
+    exist in the prices table (delivery only makes sense where a price row is
+    present). Idempotent — safe to re-run."""
+    with track_run("nse_delivery_backfill") as run:
+        with SessionLocal() as s:
+            dates = [
+                r[0]
+                for r in s.execute(
+                    text(
+                        "SELECT DISTINCT trade_date FROM prices "
+                        "ORDER BY trade_date DESC LIMIT :n"
+                    ),
+                    {"n": lookback_trading_days},
+                ).all()
+            ]
+        total = 0
+        errs: list[str] = []
+        for d in dates:
+            try:
+                raw = fetch(_url(d), subdir="delivery", use_cache=True)
+                total += _apply_bulk(_parse(raw, d))
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code in (403, 404):
+                    continue  # holiday / not published for that date
+                errs.append(f"{d}: {e}")
+            except Exception as e:
+                errs.append(f"{d}: {type(e).__name__}: {e}")
+        run.rows_written = total
+        if errs:
+            run.status = "partial" if total else "failed"
+            run.error = " | ".join(errs)[:2000]
+        return total
+
+
 def ingest_delivery(target: date | None = None, lookback_days: int = 5) -> int:
     """Fetch delivery data for `target` (default: today) walking back up to
     `lookback_days` calendar days on 404 to skip weekends/holidays."""
@@ -118,5 +188,19 @@ def ingest_delivery(target: date | None = None, lookback_days: int = 5) -> int:
 
 
 if __name__ == "__main__":
-    n = ingest_delivery()
-    print(f"updated {n} price rows with delivery %")
+    import argparse
+
+    p = argparse.ArgumentParser()
+    p.add_argument(
+        "--backfill",
+        type=int,
+        metavar="N",
+        help="backfill delivery for the last N trading dates present in prices",
+    )
+    args = p.parse_args()
+    if args.backfill:
+        n = backfill_delivery(lookback_trading_days=args.backfill)
+        print(f"backfilled {n} price rows with delivery %")
+    else:
+        n = ingest_delivery()
+        print(f"updated {n} price rows with delivery %")
