@@ -9,6 +9,19 @@ API → [`/health`](https://honest-caring-production-e1b8.up.railway.app/health)
 
 ---
 
+## Highlights
+
+Built solo, end-to-end: data pipeline → database → API → web app, live and self-updating.
+
+- **Answers one question for each of India's 500 largest listed companies** — *when this company reports results, what has its share price usually done?* — computed from 12 years of market history: **1M+ price records** and **5,800+ earnings events**.
+- **Automated the entire data supply chain.** Seven scrapers pull prices, large block trades and institutional flows from NSE/BSE every weekday night, built **fail-soft** with per-request timeouts and retries so one unreliable exchange endpoint can't stall the run.
+- **Recovered earnings dates the data source never published** by detecting each announcement's own price-and-volume spike signature — making **458 of 500 stocks (92%)** analysable instead of leaving them blank.
+- **Stress-tested its own output and caught it lying:** unadjusted stock splits were producing fake ±50% earnings reactions. Traced the root cause, **backfilled corrected prices across 836,000 rows**, and re-verified every affected stock.
+- **Similarity engine surfaces a stock's most comparable past quarters** (cosine similarity on z-standardised earnings features) — then diagnosed its own blind spot, where same-quarter analogues scored near zero, and fixed it with cyclical encoding.
+- **Readable by a first-time investor, not just an analyst** — plain-English verdicts (*"usually rises after results: 10 of 13"*), a definition on every jargon term, and a deliberate refusal to dress historical base rates up as predictions.
+
+---
+
 ## What it does
 
 For any Nifty 500 stock, the app answers four questions:
