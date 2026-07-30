@@ -175,7 +175,12 @@ def _with_growth(recs: list[dict]) -> list[dict]:
     def pct(cur, prev):
         if cur is None or prev is None or prev == 0:
             return None
-        return round((cur - prev) / abs(prev) * 100.0, 3)
+        v = round((cur - prev) / abs(prev) * 100.0, 3)
+        # Clamp to fit Numeric(10,3). When a prior quarter's PAT is near-zero the
+        # growth % can blow past the column limit and throw a numeric-overflow on
+        # insert, which (fail-soft) would drop the stock's ENTIRE earnings history.
+        # These extreme values are meaningless anyway; cap rather than lose the row.
+        return max(-9_999_999.0, min(9_999_999.0, v))
 
     for i, r in enumerate(recs):
         prev = recs[i - 1] if i - 1 >= 0 else None
