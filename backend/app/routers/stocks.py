@@ -19,7 +19,11 @@ def list_stocks(
 ) -> list[Stock]:
     stmt = select(Stock).where(Stock.in_nifty500.is_(True))
     if q:
-        stmt = stmt.where(Stock.symbol.ilike(f"{q}%"))
+        # Escape LIKE wildcards so a query of '%' or '_' matches literally instead
+        # of returning everything (or one char per underscore). Backslash is our
+        # escape char, so escape it first, then the two SQL wildcards.
+        escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        stmt = stmt.where(Stock.symbol.ilike(f"{escaped}%", escape="\\"))
     if sector:
         stmt = stmt.where(Stock.sector == sector)
     if in_fno is not None:

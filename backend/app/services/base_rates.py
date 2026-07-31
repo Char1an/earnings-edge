@@ -98,10 +98,13 @@ def compute_base_rates(
     )
     if min_confidence is not None:
         q = q.where(EarningsReaction.detection_confidence >= min_confidence)
+    # NB: yoy_pat_growth can be NULL (earliest events with no prior-year row).
+    # Both filters explicitly require a non-null value; without this, a user
+    # would see beat + miss < total and wonder where the rest went.
     if only_beat_yoy_pat:
-        q = q.where(EarningsEvent.yoy_pat_growth > 0)
+        q = q.where(EarningsEvent.yoy_pat_growth.is_not(None), EarningsEvent.yoy_pat_growth > 0)
     if only_miss_yoy_pat:
-        q = q.where(EarningsEvent.yoy_pat_growth <= 0)
+        q = q.where(EarningsEvent.yoy_pat_growth.is_not(None), EarningsEvent.yoy_pat_growth <= 0)
 
     rows = session.execute(q).all()
     buckets: dict[str, list[float]] = {m: [] for m in METRICS}
