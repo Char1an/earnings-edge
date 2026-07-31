@@ -163,9 +163,10 @@ export function StockHero({
           label="Last result: 5-day move"
           info={
             <>
-              How the stock actually moved 5 trading days after its most recent quarterly
-              result. Useful as a "was it a normal outcome" reference — compare with the
-              median and the histograms below.
+              Where the stock closed 5 trading sessions after the pre-event close around
+              its most recent quarterly result (the result day plus 4 more sessions).
+              Useful as a "was it a normal outcome" reference — compare with the median
+              and the histograms below.
             </>
           }
           value={signedPct(latestReaction?.day5_close_pct)}

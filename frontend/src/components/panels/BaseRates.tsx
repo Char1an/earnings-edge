@@ -17,11 +17,11 @@ const METRIC_TIPS: Record<string, string> = {
   gap_open_pct:
     "How the stock opened on the result day vs the previous close, in %. Each bar counts past events that fell into that range.",
   day1_close_pct:
-    "Close on the result day vs pre-event close. Each bar counts past events in that % range.",
+    "Where the stock closed on the result day itself, vs the pre-event close. Each bar counts past events in that % range.",
   day3_close_pct:
-    "Close 3 trading days after the result vs pre-event close.",
+    "Where the stock closed 3 trading sessions after the pre-event close (the result day plus 2 more sessions).",
   day5_close_pct:
-    "Close 5 trading days after the result vs pre-event close.",
+    "Where the stock closed 5 trading sessions after the pre-event close (the result day plus 4 more sessions).",
 };
 
 function toChart(d: Distribution) {

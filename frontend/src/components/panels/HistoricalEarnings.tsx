@@ -92,8 +92,8 @@ export function HistoricalEarnings({
               <span className="inline-flex items-center">
                 1-day %
                 <Info>
-                  Close on the result day vs pre-event close. This is the same-day
-                  reaction the market delivered.
+                  Where the stock closed on the result day itself, vs the pre-event
+                  close. This is the same-day reaction the market delivered.
                 </Info>
               </span>
             </th>
@@ -101,8 +101,9 @@ export function HistoricalEarnings({
               <span className="inline-flex items-center">
                 5-day %
                 <Info>
-                  Close 5 trading days after the result vs pre-event close. Captures the
-                  post-result drift, not just the same-day pop.
+                  Where the stock closed 5 trading sessions after the pre-event close
+                  (i.e. the result day plus 4 more sessions). Captures the post-result
+                  drift, not just the same-day pop.
                 </Info>
               </span>
             </th>
