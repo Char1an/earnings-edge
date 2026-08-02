@@ -45,7 +45,15 @@ def _fetch_jugaad(symbol: str, start: date, end: date) -> pd.DataFrame | None:
                 "NO OF TRADES": "trades",
             }
         )
-        df["trade_date"] = pd.to_datetime(df["trade_date"]).dt.date
+        # jugaad-data returns each trading date as a NAIVE 18:30:00 timestamp —
+        # that's 00:00 IST expressed in UTC. Calling .dt.date on it truncates to
+        # the UTC calendar day, which is one day EARLIER than the real trading
+        # session (Mon's data lands on Sun, Fri's on Thu, etc). Interpret it as
+        # UTC and convert to IST before taking the date so the session date is right.
+        ts = pd.to_datetime(df["trade_date"])
+        if ts.dt.tz is None:
+            ts = ts.dt.tz_localize("UTC")
+        df["trade_date"] = ts.dt.tz_convert("Asia/Kolkata").dt.date
         return df[["trade_date", "open", "high", "low", "close", "volume"]]
     except Exception as e:
         log.warning("jugaad failed for %s: %s", symbol, e)
