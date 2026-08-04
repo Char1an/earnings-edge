@@ -14,7 +14,7 @@ import re
 import signal
 import time
 from calendar import monthrange
-from datetime import date
+from datetime import date, timedelta
 
 from bs4 import BeautifulSoup, Tag
 from sqlalchemy import func, select
@@ -30,7 +30,19 @@ log = logging.getLogger(__name__)
 BASE = "https://www.screener.in/company/{symbol}/{scope}/"
 MONTHS = {"Mar": 3, "Jun": 6, "Sep": 9, "Dec": 12}
 PER_STOCK_DELAY_S = 0.6  # be nice to Screener; 500 stocks ≈ 5 min
-PER_STOCK_TIMEOUT_S = 25  # hard SIGALRM cap so one hanging fetch cant wedge run
+PER_STOCK_TIMEOUT_S = 40  # hard SIGALRM cap (covers up to two scope fetches per stock)
+
+# If the freshest quarter we can parse for a symbol is older than this, the page
+# we landed on is almost certainly the wrong/defunct one (e.g. a merged entity or
+# a stale consolidated statement). Reject the scrape rather than persist decade-old
+# numbers that misrepresent the stock. See the stale-scrape guard in _scrape_one.
+STALE_MAX_AGE_DAYS = 300
+
+# Screener's slug is the NSE symbol for ~99% of the Nifty 500. Add a mapping here
+# ONLY for the rare symbol whose Screener URL genuinely differs from its NSE ticker
+# (kept empty by default — most "wrong data" cases are a consolidated-vs-standalone
+# scope problem, handled by _best_scrape below, not a slug mismatch).
+SLUG_OVERRIDES: dict[str, str] = {}
 
 
 class _ScrapeTimeout(Exception):
@@ -63,18 +75,45 @@ ROW_KEYS = {
 }
 
 
-def _fetch_html(symbol: str) -> str | None:
+def _fetch_scope(symbol: str, scope: str) -> str | None:
+    slug = SLUG_OVERRIDES.get(symbol, symbol)
+    url = BASE.format(symbol=slug, scope=scope).rstrip("/") + "/"
+    try:
+        # use_cache=False: this scraper is called weekly and MUST see fresh
+        # HTML to pick up newly released quarters.
+        return fetch(url, subdir=f"screener/{scope or 'standalone'}", use_cache=False).decode(
+            "utf-8", errors="replace"
+        )
+    except Exception as e:
+        log.debug("screener %s [%s] failed: %s", symbol, scope or "standalone", e)
+        return None
+
+
+def _best_scrape(symbol: str) -> list[dict]:
+    """Fetch both the consolidated and standalone pages and return the quarters
+    from whichever has the FRESHEST data.
+
+    Screener keeps a `consolidated` and a `standalone` financial statement per
+    company. Many single-entity companies (banks, insurers, MNC subsidiaries like
+    COLPAL/PFIZER) have an empty or defunct consolidated statement while their real
+    quarters live on the standalone page — and a few (BAYERCROP, TATAELXSI) have a
+    stale consolidated statement frozen years ago. Picking the first page that
+    returns HTTP 200 (old behaviour) silently persisted that empty/stale data, so
+    we now compare both scopes by newest quarter-end and keep the better one.
+    """
+    best: list[dict] = []
+    best_newest: date | None = None
     for scope in ("consolidated", ""):
-        url = BASE.format(symbol=symbol, scope=scope).rstrip("/") + "/"
-        try:
-            # use_cache=False: this scraper is called weekly and MUST see fresh
-            # HTML to pick up newly released quarters.
-            return fetch(url, subdir=f"screener/{scope or 'standalone'}", use_cache=False).decode(
-                "utf-8", errors="replace"
-            )
-        except Exception as e:
-            log.debug("screener %s [%s] failed: %s", symbol, scope or "standalone", e)
-    return None
+        html = _fetch_scope(symbol, scope)
+        if html is None:
+            continue
+        recs = _extract_quarters(html)
+        if not recs:
+            continue
+        newest = max(r["quarter_end"] for r in recs)
+        if best_newest is None or newest > best_newest:
+            best, best_newest = recs, newest
+    return best
 
 
 def _parse_num(text: str) -> float | None:
@@ -243,11 +282,22 @@ def _upsert(stock_id: int, recs: list[dict]) -> int:
 
 
 def _scrape_one(stock_id: int, symbol: str) -> int:
-    html = _fetch_html(symbol)
-    if html is None:
+    recs = _best_scrape(symbol)
+    if not recs:
         return 0
-    recs = _with_growth(_extract_quarters(html))
-    return _upsert(stock_id, recs)
+    # Stale-scrape guard: if even the freshest page is >~10 months old, we've landed
+    # on a defunct/wrong entity. Refuse to persist rather than overwrite good data
+    # (or seed a stock) with decade-old numbers.
+    newest = max(r["quarter_end"] for r in recs)
+    if newest < date.today() - timedelta(days=STALE_MAX_AGE_DAYS):
+        log.warning(
+            "screener %s: newest quarter %s is stale (>%dd) — skipping as wrong page",
+            symbol,
+            newest,
+            STALE_MAX_AGE_DAYS,
+        )
+        return 0
+    return _upsert(stock_id, _with_growth(recs))
 
 
 def _stocks_with_earnings(session) -> set[int]:
