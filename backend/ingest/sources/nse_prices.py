@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import signal
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
 from sqlalchemy import func, select
@@ -143,6 +143,10 @@ def _upsert_prices(stock_id: int, df: pd.DataFrame | None) -> int:
     if not rows:
         return 0
 
+    now = datetime.now(timezone.utc)
+    for r in rows:
+        r["ingested_at"] = now
+
     total = 0
     session = SessionLocal()
     try:
@@ -157,6 +161,7 @@ def _upsert_prices(stock_id: int, df: pd.DataFrame | None) -> int:
                     "low": stmt.excluded.low,
                     "close": stmt.excluded.close,
                     "volume": stmt.excluded.volume,
+                    "ingested_at": stmt.excluded.ingested_at,
                 },
             )
             session.execute(stmt)
