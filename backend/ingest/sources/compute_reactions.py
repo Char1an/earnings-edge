@@ -66,12 +66,25 @@ def _load_prices(session, stock_id: int, start: date, end: date) -> pd.DataFrame
     df["adj_close"] = pd.to_numeric(df["adj_close"], errors="coerce")
     df["volume"] = df["volume"].fillna(0).astype("int64")
 
-    # Adjustment ratio: adj_close / close on rows where adj_close is known,
-    # else 1.0. Apply to open/high/low, then overwrite close.
-    ratio = (df["adj_close"] / df["close"]).where(df["adj_close"].notna(), 1.0)
-    for c in ("open", "high", "low"):
-        df[c] = df[c] * ratio
-    df["close"] = df["adj_close"].where(df["adj_close"].notna(), df["close"])
+    # adj_close (from yfinance) is the one clean, continuous price series: the raw
+    # close/OHLC from the ingest sources is occasionally on a wrong scale for some
+    # symbols (jugaad returned e.g. BRITANNIA ~166x too small, and stray M&MFIN rows
+    # ~7x too big) — those errors created fake ±100%+ reactions. So use adj_close as
+    # the authoritative close and rescale O/H/L by the per-row adj/close ratio, which
+    # self-corrects on any row where adj_close is known regardless of the raw scale.
+    #
+    # Rows missing adj_close are isolated special-session days (Diwali Muhurat, Budget
+    # Saturdays) that yfinance omits. Their raw value can be on either scale, so we do
+    # NOT trust it: interpolate the adjusted close from neighbours and flatten O/H/L to
+    # it. Such days are never the reaction day, so this only stops them from spiking.
+    if df["adj_close"].notna().any():
+        ratio = (df["adj_close"] / df["close"]).where(df["adj_close"].notna())
+        for c in ("open", "high", "low"):
+            df[c] = df[c] * ratio
+        df["close"] = df["adj_close"].interpolate(method="linear", limit_direction="both")
+        for c in ("open", "high", "low"):
+            df[c] = df[c].fillna(df["close"])
+    # else: no adj_close anywhere for this stock → leave raw OHLC untouched.
     return df.drop(columns=["adj_close"])
 
 
