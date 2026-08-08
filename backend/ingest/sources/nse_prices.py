@@ -85,12 +85,41 @@ def _fetch_yfinance(symbol: str, start: date, end: date) -> pd.DataFrame | None:
         return None
 
 
+def _looks_corrupt(df: pd.DataFrame | None) -> bool:
+    """True if a fetched close series has jugaad's garbage-value signature.
+
+    jugaad-data intermittently returns wildly wrong close values for some symbols
+    (e.g. NTPC 5.15/1245, SBIN alternating ~400/~10900, M&MFIN ~320/~2336), which
+    manufactured fake ±100%+ earnings reactions. A real equity never swings >60% in
+    a single session, let alone repeatedly — so treat the series as corrupt when at
+    least 3 rows do AND they're an implausible share (>5%) of the window. The dual
+    threshold avoids false positives: one legit split/bonus ex-date (1 big day) fails
+    the count test on a short daily window, and a handful of ex-dates over a multi-year
+    backfill fail the fraction test.
+    """
+    if df is None or len(df) < 5:
+        return False
+    close = pd.to_numeric(df["close"], errors="coerce").dropna()
+    if len(close) < 5:
+        return False
+    jumps = close.pct_change().abs().dropna()
+    big = jumps > 0.6
+    return bool(big.sum() >= 3 and big.mean() > 0.05)
+
+
 def _fetch_with_fallback(symbol: str, start: date, end: date) -> pd.DataFrame | None:
-    """jugaad first, fall back to yfinance. Never raises."""
+    """jugaad first, fall back to yfinance. Never raises.
+
+    yfinance is preferred not only when jugaad returns nothing but also when jugaad
+    returns a corrupt-looking close series (see _looks_corrupt), so the nightly can't
+    re-introduce the garbage prices a manual yfinance-only refetch has cleaned up.
+    """
     df = _fetch_jugaad(symbol, start, end)
-    if df is None or df.empty:
-        df = _fetch_yfinance(symbol, start, end)
-    return df
+    if df is not None and not df.empty and not _looks_corrupt(df):
+        return df
+    if df is not None and not df.empty:
+        log.warning("jugaad returned corrupt-looking prices for %s — using yfinance", symbol)
+    return _fetch_yfinance(symbol, start, end)
 
 
 class _FetchTimeout(Exception):
