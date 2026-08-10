@@ -5,8 +5,15 @@ import { Info } from "@/components/Info";
 import { signedPct as fmtPct } from "@/lib/format";
 import type { EarningsHistoryItem, EventTimeline } from "@/lib/types";
 
-const fmtCr = (v: number | null | undefined) =>
-  v == null ? "—" : v >= 1000 ? `₹${(v / 1000).toFixed(2)}k Cr` : `₹${v.toFixed(0)} Cr`;
+const fmtCr = (v: number | null | undefined) => {
+  if (v == null) return "—";
+  // Sign goes before the ₹ (not "₹-45"), and the k-abbreviation keys off magnitude so
+  // loss quarters (negative PAT, e.g. HINDPETRO -12,265) render as "-₹12.27k Cr" rather
+  // than a bare "₹-12265 Cr" (old code skipped the >=1000 branch for negatives).
+  const sign = v < 0 ? "-" : "";
+  const a = Math.abs(v);
+  return a >= 1000 ? `${sign}₹${(a / 1000).toFixed(2)}k Cr` : `${sign}₹${a.toFixed(0)} Cr`;
+};
 const fmtNum = (v: number | null | undefined) =>
   v == null ? "—" : v.toFixed(2);
 

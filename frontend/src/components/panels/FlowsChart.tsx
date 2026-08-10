@@ -43,7 +43,9 @@ export function FlowsChart({ points }: { points: FiiDiiPoint[] }) {
                 border: "1px solid #232a33",
                 fontSize: 12,
               }}
-              formatter={(v: number) => `${v > 0 ? "+" : ""}₹${v.toFixed(0)} Cr`}
+              formatter={(v: number) =>
+                `${v < 0 ? "-" : v > 0 ? "+" : ""}₹${Math.abs(v).toFixed(0)} Cr`
+              }
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Bar dataKey="FII" fill="#f85149" stackId="net" />
