@@ -101,6 +101,52 @@ def _process_stock(stock_id: int, symbol: str) -> tuple[int, int]:
         session.close()
 
 
+def fill_gaps() -> int:
+    """Fill NULL adj_close rows by interpolating the neighbouring (yfinance) adj_close.
+
+    yfinance omits Adj Close for special sessions (Diwali Muhurat, Budget Saturdays,
+    NSE DR-drills) and for jugaad-only phantom dates it never traded; it also lags on
+    the newest days. Every downstream reader COALESCEs adj_close to the RAW close on
+    those rows — which manufactures a fake jump when the raw close is on a different
+    scale (WIPRO's 2024-01-20 showed +122% on the chart) or is outright garbage
+    (jugaad wrote NTPC 10, CHOLAFIN 1202 on dates yfinance doesn't have).
+
+    We must NOT derive the gap from that raw close. Instead we linearly interpolate the
+    adjusted close from the surrounding yfinance-sourced adj_close values, which are the
+    one trustworthy series. Isolated one-day gaps get ~their neighbours' price; the raw
+    close on those rows is left as-is (only ever read when adj_close is NULL, which it no
+    longer is). Run this after the yfinance pass so every non-NULL adj_close is authoritative.
+    """
+    with SessionLocal() as s:
+        rows = s.execute(text(
+            "SELECT stock_id, trade_date, adj_close FROM prices ORDER BY stock_id, trade_date"
+        )).all()
+    df = pd.DataFrame(rows, columns=["stock_id", "trade_date", "adj_close"])
+    df["adj_close"] = pd.to_numeric(df["adj_close"], errors="coerce")
+    was_null = df["adj_close"].isna()
+    # Interpolate within each stock, in date order, both directions for edge gaps.
+    df["filled"] = (
+        df.groupby("stock_id")["adj_close"]
+        .transform(lambda g: g.interpolate(method="linear", limit_direction="both"))
+    )
+    fills = df[was_null & df["filled"].notna()]
+    if fills.empty:
+        return 0
+
+    updates = [
+        {"sid": int(r.stock_id), "d": r.trade_date, "a": round(float(r.filled), 4)}
+        for r in fills.itertuples(index=False)
+    ]
+    with SessionLocal() as s:
+        for i in range(0, len(updates), 5000):
+            s.execute(
+                text("UPDATE prices SET adj_close = :a WHERE stock_id = :sid AND trade_date = :d"),
+                updates[i : i + 5000],
+            )
+        s.commit()
+    return len(updates)
+
+
 def backfill(symbols: list[str] | None = None, workers: int = 8) -> int:
     with track_run("backfill_adj_close") as run:
         with SessionLocal() as s:
@@ -124,6 +170,13 @@ def backfill(symbols: list[str] | None = None, workers: int = 8) -> int:
                     bar.update(1)
                     bar.set_postfix_str(f"rows={total} skip={skipped}")
 
+        # Fill the NULL adj_close gaps yfinance left (special sessions, newest days)
+        # so downstream COALESCE(adj_close, close) never falls back to a mis-scaled
+        # raw close. Only meaningful on a full (all-symbol) run.
+        if not symbols:
+            filled = fill_gaps()
+            log.info("filled %d NULL adj_close gap rows", filled)
+
         run.rows_written = total
         if skipped:
             run.status = "partial" if total else "failed"
@@ -135,7 +188,12 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--symbols", help="comma-separated NSE symbols (default: all)")
     p.add_argument("--workers", type=int, default=8)
+    p.add_argument("--fill-gaps-only", action="store_true",
+                   help="skip yfinance fetch; only carry-fill remaining NULL adj_close rows")
     args = p.parse_args()
-    symbols = args.symbols.split(",") if args.symbols else None
-    n = backfill(symbols=symbols, workers=args.workers)
-    print(f"updated {n} rows")
+    if args.fill_gaps_only:
+        print(f"filled {fill_gaps()} NULL adj_close gap rows")
+    else:
+        symbols = args.symbols.split(",") if args.symbols else None
+        n = backfill(symbols=symbols, workers=args.workers)
+        print(f"updated {n} rows")
