@@ -38,3 +38,4 @@ frontend/.env*
 .idea/
 *.swp
 /.claude/
+HANDOFF.md
