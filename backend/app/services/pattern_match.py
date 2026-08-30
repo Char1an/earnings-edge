@@ -151,7 +151,7 @@ def _standardize(
 
 def _cosine(a: list[float | None], b: list[float | None]) -> float | None:
     """Cosine similarity treating None as missing (dropped from both sides)."""
-    pairs = [(x, y) for x, y in zip(a, b) if x is not None and y is not None]
+    pairs = [(x, y) for x, y in zip(a, b, strict=False) if x is not None and y is not None]
     if len(pairs) < 2:
         return None
     dot = sum(x * y for x, y in pairs)

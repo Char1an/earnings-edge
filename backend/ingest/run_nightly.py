@@ -33,7 +33,7 @@ import os
 import sys
 import traceback
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ def _should_run_weekly() -> bool:
         return True
     # Friday. The nightly cron runs Mon-Fri; Screener is scraped once per week
     # on Friday's run, catching every earnings announcement from the trading week.
-    return datetime.now(timezone.utc).weekday() == 4
+    return datetime.now(UTC).weekday() == 4
 
 
 def main() -> int:

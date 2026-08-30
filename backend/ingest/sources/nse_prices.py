@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import signal
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
 from sqlalchemy import func, select
@@ -172,7 +172,7 @@ def _upsert_prices(stock_id: int, df: pd.DataFrame | None) -> int:
     if not rows:
         return 0
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     for r in rows:
         r["ingested_at"] = now
 

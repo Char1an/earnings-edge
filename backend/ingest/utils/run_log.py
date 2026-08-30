@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import update
 
@@ -45,7 +45,7 @@ def _finalize(h: RunHandle) -> None:
                 status=h.status,
                 error=h.error,
                 rows_written=h.rows_written,
-                finished_at=datetime.now(timezone.utc),
+                finished_at=datetime.now(UTC),
             )
         )
         s.commit()

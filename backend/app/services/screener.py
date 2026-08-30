@@ -193,9 +193,7 @@ def screen(
             return False
         if min_drift_20d is not None and (r.drift_20d is None or r.drift_20d < min_drift_20d):
             return False
-        if min_n_reactions is not None and r.n_reactions < min_n_reactions:
-            return False
-        return True
+        return not (min_n_reactions is not None and r.n_reactions < min_n_reactions)
 
     rows = [r for r in rows if keep(r)]
 

@@ -24,7 +24,6 @@ from __future__ import annotations
 import argparse
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date
 
 import pandas as pd
 import yfinance as yf
@@ -63,7 +62,7 @@ def _bulk_update(session, stock_id: int, df: pd.DataFrame) -> int:
         return 0
     # Build a VALUES table and UPDATE-FROM in one round trip. Postgres will
     # ignore trade_dates that don't exist in prices (LEFT of an inner join).
-    rows = [(d, float(a)) for d, a in zip(df["trade_date"], df["adj_close"])]
+    rows = [(d, float(a)) for d, a in zip(df["trade_date"], df["adj_close"], strict=False)]
     # Use a temporary VALUES clause; ARRAY unnest is the tidiest cross-driver.
     dates = [r[0] for r in rows]
     adjs = [r[1] for r in rows]
