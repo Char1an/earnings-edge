@@ -61,8 +61,21 @@ def _fetch_recent_deals(session: Session, stock_id: int, since: date) -> list[De
         .where(and_(Deal.stock_id == stock_id, Deal.trade_date >= since))
         # NULLS LAST so deals without a computed value_cr don't bubble to the top
         # of the "recent deals" table (Postgres defaults to NULLS FIRST in DESC).
-        .order_by(desc(Deal.trade_date), desc(Deal.value_cr).nulls_last())
+        # 'block' sorts before 'bulk' inside the same trade so it survives dedup.
+        .order_by(desc(Deal.trade_date), desc(Deal.value_cr).nulls_last(), Deal.deal_type)
     ).scalars()
+    # A trade large enough to satisfy both criteria is reported by NSE in BOTH
+    # the bulk and block feeds (same date, side, client, qty, price). Both rows
+    # get stored; dedup here so the table + net_value_cr count each trade once.
+    seen: set[tuple] = set()
+    deals = []
+    for d in rows:
+        key = (d.trade_date, d.buy_sell, d.client_name or "",
+               int(d.quantity), float(d.price))
+        if key in seen:
+            continue
+        seen.add(key)
+        deals.append(d)
     return [
         DealOut(
             trade_date=d.trade_date,
@@ -74,7 +87,7 @@ def _fetch_recent_deals(session: Session, stock_id: int, since: date) -> list[De
             price=float(d.price),
             value_cr=float(d.value_cr) if d.value_cr is not None else None,
         )
-        for d in rows
+        for d in deals
     ]
 
 

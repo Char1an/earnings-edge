@@ -107,15 +107,30 @@ def _upcoming(session: Session, days_ahead: int) -> list[UpcomingItem]:
 
 def _notable_deals(session: Session, days_back: int, limit: int) -> list[NotableDeal]:
     since = date.today() - timedelta(days=days_back)
+    # Overfetch — a big trade that satisfies both criteria (>0.5% of float AND
+    # >₹5 Cr pre-negotiated) is reported by NSE in BOTH the bulk and block
+    # feeds. We store both rows for granularity, but for a "notable deals"
+    # summary we want one entry per real trade, else the top-15 table shows
+    # every large deal twice (see ATHERENERG 2026-08-28: 4 rows for 1 trade).
     rows = session.execute(
         select(Deal, Stock.symbol, Stock.name)
         .join(Stock, Stock.id == Deal.stock_id)
         .where(Deal.trade_date >= since)
-        .order_by(desc(Deal.value_cr).nulls_last(), desc(Deal.trade_date))
-        .limit(limit)
+        # 'block' sorts before 'bulk' inside the same trade so it survives dedup.
+        .order_by(desc(Deal.value_cr).nulls_last(), desc(Deal.trade_date), Deal.deal_type)
+        .limit(limit * 4)
     ).all()
-    return [
-        NotableDeal(
+    seen: set[tuple] = set()
+    out: list[NotableDeal] = []
+    for d, sym, name in rows:
+        # Identity of the underlying transaction — everything except which feed
+        # (bulk/block) or exchange (NSE/BSE) reported it.
+        key = (d.trade_date, d.stock_id, d.buy_sell, d.client_name or "",
+               int(d.quantity), float(d.price))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(NotableDeal(
             symbol=sym,
             name=name,
             trade_date=d.trade_date,
@@ -125,9 +140,10 @@ def _notable_deals(session: Session, days_back: int, limit: int) -> list[Notable
             quantity=int(d.quantity),
             price=float(d.price),
             value_cr=float(d.value_cr) if d.value_cr is not None else None,
-        )
-        for d, sym, name in rows
-    ]
+        ))
+        if len(out) >= limit:
+            break
+    return out
 
 
 def _fii_dii_series(session: Session, days_back: int) -> list[FlowPoint]:
