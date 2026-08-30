@@ -3,7 +3,7 @@
 **Quantified earnings playbooks for the Nifty 500.** Given a stock, surface historical earnings behavior, institutional positioning, and prior similar setups — so you know the base rate before results, not after.
 
 Live demo → **[earnings-edge-omega.vercel.app](https://earnings-edge-omega.vercel.app)**
-API → [`/health`](https://honest-caring-production-e1b8.up.railway.app/health) · [`/api/v1/stocks/RELIANCE`](https://honest-caring-production-e1b8.up.railway.app/api/v1/stocks/RELIANCE)
+API → [`/health`](https://earnings-edge-backend.onrender.com/health) · [`/api/v1/stocks/RELIANCE`](https://earnings-edge-backend.onrender.com/api/v1/stocks/RELIANCE)
 
 > Not a prediction tool. Base rates + positioning + pattern match. Educational / research use only.
 
@@ -56,8 +56,8 @@ flowchart LR
         EAR[screener_earnings]
         CMP[compute_reactions + iv_rank]
     end
-    DB[(Neon Postgres<br/>~1M price rows<br/>5.8k earnings events<br/>5.6k reactions)]
-    API[FastAPI on Railway<br/>/api/v1/*]
+    DB[(Neon Postgres<br/>~1M price rows<br/>6.4k earnings events<br/>6.2k reactions)]
+    API[FastAPI on Render<br/>/api/v1/*]
     UI[Next.js 14 on Vercel]
 
     Sources --> Ingest --> DB
@@ -78,7 +78,7 @@ flowchart LR
 | DB | Neon Postgres (Singapore) | Serverless, free tier survives ~1M rows and Mac-off ingests |
 | Ingest HTTP | httpx + tenacity + disk cache + SIGALRM per-request timeout | NSE rate-limits and hangs; one stuck request must never wedge the batch |
 | Frontend | Next.js 14 (app router), TypeScript, Tailwind, Recharts | Server components for the stock playbook (single request), client component for the URL-synced screener |
-| Deploy | Railway (backend, Railpack), Vercel (frontend), GitHub Actions (nightly cron) | Free tiers, zero-ops |
+| Deploy | Render (backend, free web service via blueprint), Vercel (frontend), GitHub Actions (nightly cron) | Free tiers, zero-ops |
 | Analytics | pandas + numpy for reactions, IV rank, and pattern match; z-score cosine for similarity | Kept the dependency count boring |
 
 ---
@@ -94,7 +94,7 @@ backend/
   ingest/
     sources/    per-source scrapers, all fail-soft
     run_nightly.py    orchestrator
-  Procfile, runtime.txt, requirements.txt    Railway deploy config
+  Procfile, runtime.txt, requirements.txt    deploy config (Render reads them via the render.yaml blueprint at the repo root)
 frontend/
   src/app/            Next.js routes: /, /stock/[symbol], /screener
   src/components/     panels + shared UI
@@ -139,28 +139,28 @@ python -m ingest.sources.compute_reactions
 |---|---|---|
 | `stocks` | 500 | Full Nifty 500, sector + F&O flag populated |
 | `prices` | ~1,003,000 | ~12 years OHLCV, ~2,500 sessions per stock |
-| `earnings_events` | 5,824 | 463/500 stocks; 37 not mappable to Screener under NSE symbol |
-| `earnings_reactions` | 5,591 | 458/500 stocks (91.6%) with computed day-1/3/5 reactions |
+| `earnings_events` | ~6,400 | 500/500 stocks after scope-selection fix (consolidated vs standalone) |
+| `earnings_reactions` | ~6,200 | ~500/500 stocks with computed day-1/3/5 reactions |
 | `iv_rank` | growing | Needs ≥20 nightly snapshots to be meaningful |
 
 ---
 
 ## Deploy
 
-Fully deployed on free tiers. See [HANDOFF.md](HANDOFF.md) §9 for the wiring — Railway env vars, Vercel env, CORS regex, redeploy commands.
+Fully deployed on free tiers.
 
-- Backend: `RAILWAY_API_TOKEN=... railway up --detach` from `backend/`
-- Frontend: `vercel deploy --prod --yes` from `frontend/`
-- Cron: `.github/workflows/nightly-ingest.yml` runs the orchestrator against Neon nightly at 15:30 UTC Mon–Fri
+- **Backend (Render):** the `render.yaml` blueprint at the repo root provisions a free web service — Python 3.11, `pip install -r backend/requirements.txt`, migrations run inline via `alembic upgrade head` before uvicorn. Autodeploys on every push to `main`. Set `DATABASE_URL` (Neon) as a secret env var; `CORS_ORIGINS` is pre-set in the blueprint.
+- **Frontend (Vercel):** `vercel deploy --prod --yes` from `frontend/`. `NEXT_PUBLIC_API_BASE` points at the Render URL.
+- **Cron (GitHub Actions):** `.github/workflows/nightly-ingest.yml` runs the orchestrator against Neon nightly at 15:30 UTC Mon–Fri. Needs `DATABASE_URL` in repo secrets.
 
 ---
 
 ## Known limitations
 
 - ~~Prices are not split/bonus-adjusted.~~ **Fixed.** `prices.adj_close` is backfilled from yfinance (836k rows updated) and `compute_reactions` / timelines endpoint / `pattern_match._drift_20d` use it via COALESCE with raw close as fallback. Reaction max magnitudes for COCHINSHIP, INFY, WIPRO, TITAN, RELIANCE all now sit in the realistic 8-24% range.
-- **Screener match rate: 463/500.** 37 stocks have names that don't cleanly map to NSE symbols on Screener. Per-symbol slug mapping would fix it.
 - **FII/DII flows are market-wide, not per-stock.** No free per-stock institutional flow data exists on Indian markets.
 - **Options history starts from first nightly cron run.** IV rank is only meaningful after ~20 sessions of snapshots.
+- **Free-tier cold start.** The Render backend spins down after 15 min idle; the first request after that takes ~30–60s. A cron pinger against `/health` keeps it warm in exchange for zero hosting cost.
 
 ---
 
@@ -168,9 +168,7 @@ Fully deployed on free tiers. See [HANDOFF.md](HANDOFF.md) §9 for the wiring �
 
 - Shareholding-pattern quarterly ingest (per-stock FII/DII, better than market-wide)
 - Watchlist on the home page (localStorage)
-- Symbol-mapping table for the 37 missing Screener stocks
-
-Full backlog in [HANDOFF.md](HANDOFF.md) §10.
+- BSE announcements ingest for authoritative earnings dates (instead of inferring from price/volume)
 
 ---
 
