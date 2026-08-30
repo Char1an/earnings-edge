@@ -1,0 +1,41 @@
+# Render blueprint. When you connect this repo to Render (New → Blueprint), it
+# reads this file and provisions the service in one step. Free plan; spins down
+# after 15 min idle, cold start ~30-60s on the next request. That's fine for a
+# portfolio site.
+services:
+  - type: web
+    name: earnings-edge-backend
+    runtime: python
+    plan: free
+    region: oregon         # closest free-tier region; Neon is Singapore so add ~200ms/query
+    rootDir: backend
+    branch: main
+    autoDeploy: true       # every push to main redeploys
+
+    # Free plan has no preDeployCommand, so run migrations inline before uvicorn.
+    # `alembic upgrade head` is idempotent — safe on every boot.
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /health
+
+    envVars:
+      # Set at deploy time — Render prompts for it and stores as a secret.
+      # Get the current value from Neon console → project earnings-edge → branch production
+      # → Roles → neondb_owner → Connection string.
+      - key: DATABASE_URL
+        sync: false
+
+      # Allow the deployed frontend + local dev to call the backend.
+      # The default cors_origin_regex in config.py already covers *.vercel.app
+      # preview subdomains, so this only needs the explicit production origins.
+      - key: CORS_ORIGINS
+        value: http://localhost:3000,https://earnings-edge-omega.vercel.app
+
+      - key: INGEST_USER_AGENT
+        value: Mozilla/5.0 (Macintosh; earnings-edge research)
+
+      # Pin Python. runtime.txt also has it, but PYTHON_VERSION is what Render's
+      # buildpack actually reads.
+      - key: PYTHON_VERSION
+        value: 3.11.9
